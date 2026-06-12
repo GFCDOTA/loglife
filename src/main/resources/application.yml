@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: loglife
+  datasource:
+    url: ${LOGLIFE_DB_URL:jdbc:postgresql://localhost:5432/loglife}
+    username: ${LOGLIFE_DB_USER:loglife}
+    password: ${LOGLIFE_DB_PASSWORD:loglife}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+
+server:
+  port: ${LOGLIFE_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+
+loglife:
+  cors:
+    # Comma-separated list. "*" is fine for a local/LAN-only MVP.
+    allowed-origins: ${LOGLIFE_CORS_ORIGINS:*}
+  nutrition:
+    estimation:
+      # Which local agent to use as the primary estimator: mock | local-agent | ollama
+      # Default is "mock" so the app boots and tests run with zero external dependencies.
+      provider: ${LOGLIFE_ESTIMATION_PROVIDER:mock}
+      local-agent:
+        base-url: ${LOGLIFE_LOCAL_AGENT_URL:http://localhost:8787}
+        timeout: 5s
+      ollama:
+        base-url: ${LOGLIFE_OLLAMA_URL:http://localhost:11434}
+        model: ${LOGLIFE_OLLAMA_MODEL:llama3.1:8b}
+        timeout: 30s
+
+logging:
+  level:
+    com.loglife: INFO

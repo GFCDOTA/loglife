@@ -1,0 +1,22 @@
+# LogLife - local PostgreSQL for development.
+# Usage: docker compose up -d
+services:
+  postgres:
+    image: postgres:17
+    container_name: loglife-postgres
+    environment:
+      POSTGRES_DB: loglife
+      POSTGRES_USER: loglife
+      POSTGRES_PASSWORD: loglife
+    ports:
+      - "5432:5432"
+    volumes:
+      - loglife_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U loglife -d loglife"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  loglife_pgdata:
