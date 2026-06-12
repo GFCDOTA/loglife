@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#16a34a">
+    <title>LogLife · Alimentação</title>
+
+    <!-- PWA / iOS home screen -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="LogLife">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="appbar">
+    <div class="appbar-title">🥗 LogLife <span>Alimentação</span></div>
+</header>
+
+<main>
+    <!-- Day selector -->
+    <section class="day-nav">
+        <button id="prevDay" class="icon-btn" aria-label="Dia anterior">‹</button>
+        <input type="date" id="dayInput" aria-label="Data">
+        <button id="nextDay" class="icon-btn" aria-label="Próximo dia">›</button>
+        <button id="todayBtn" class="ghost-btn">Hoje</button>
+    </section>
+
+    <!-- Daily summary -->
+    <section class="card summary" id="summaryCard">
+        <div class="summary-cal">
+            <span id="totalCalories">0</span>
+            <small>kcal</small>
+        </div>
+        <div class="macros">
+            <div class="macro"><span id="totalProtein">0</span><small>Proteína (g)</small></div>
+            <div class="macro"><span id="totalCarbs">0</span><small>Carbo (g)</small></div>
+            <div class="macro"><span id="totalFat">0</span><small>Gordura (g)</small></div>
+        </div>
+        <div class="summary-foot"><span id="totalLogs">0</span> registro(s) no dia</div>
+    </section>
+
+    <!-- Add food -->
+    <section class="card">
+        <h2>Adicionar alimento</h2>
+        <form id="foodForm" autocomplete="off">
+            <div class="meal-chips" id="mealChips" role="radiogroup" aria-label="Refeição">
+                <button type="button" class="chip" data-meal="BREAKFAST">Café</button>
+                <button type="button" class="chip" data-meal="LUNCH">Almoço</button>
+                <button type="button" class="chip" data-meal="DINNER">Jantar</button>
+                <button type="button" class="chip" data-meal="SNACK">Lanche</button>
+                <button type="button" class="chip" data-meal="OTHER">Outro</button>
+            </div>
+
+            <label class="field">
+                <span>O que você comeu?</span>
+                <textarea id="description" rows="2" placeholder="ex.: 2 bifes médios e 200g de arroz"
+                          minlength="2" maxlength="1000" required></textarea>
+            </label>
+
+            <div class="row">
+                <label class="field grow">
+                    <span>Quantidade (opcional)</span>
+                    <input type="number" id="quantity" step="any" min="0" inputmode="decimal" placeholder="200">
+                </label>
+                <label class="field grow">
+                    <span>Unidade (opcional)</span>
+                    <input type="text" id="unit" maxlength="50" placeholder="g, unidade...">
+                </label>
+            </div>
+
+            <label class="field">
+                <span>Observações (opcional)</span>
+                <input type="text" id="notes" maxlength="2000" placeholder="ex.: no almoço, fora de casa">
+            </label>
+
+            <button type="submit" id="submitBtn" class="primary-btn">Estimar e registrar</button>
+        </form>
+        <p class="hint">As calorias são <strong>estimadas por um agente local</strong> na sua máquina.
+            Estimativas marcadas <em>MOCK</em> são apenas exemplo (confiança baixa).</p>
+    </section>
+
+    <!-- Day list -->
+    <section class="card">
+        <h2>Registros do dia</h2>
+        <div id="logList" class="log-list"></div>
+        <p id="emptyState" class="empty" hidden>Nenhum registro neste dia.</p>
+    </section>
+</main>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
