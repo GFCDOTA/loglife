@@ -68,10 +68,10 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Migrations -->
+        <!-- Migrations (Boot 4 ships Flyway auto-configuration in its own starter module) -->
         <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
