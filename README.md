@@ -75,11 +75,19 @@ A app sobe em `http://localhost:8080` e já serve a PWA na raiz.
 
 > O `./mvnw` baixa o Maven 3.9.16 na primeira execução. Não é preciso ter Maven instalado.
 
-> **Troubleshooting (Windows):** se o start falhar com `Unable to establish loopback connection` /
-> `java.net.SocketException: Invalid argument: connect`, o problema **não é a aplicação** — é o
-> SO/antivírus bloqueando conexões de loopback do `java.exe` (afeta qualquer servidor Java NIO e o
-> Testcontainers). Soluções: liberar o `java.exe`/JDK no antivírus/firewall, ou rodar
-> `netsh winsock reset` (admin) e reiniciar.
+> **Troubleshooting (Windows) — `Unable to establish loopback connection` / `SocketException: Invalid argument: connect`:**
+> Não é a aplicação. Em algumas máquinas Windows o **AF_UNIX está quebrado** (antivírus/segurança
+> filtrando), e o self-pipe do selector NIO do Java falha — afeta qualquer servidor Java NIO
+> (Tomcat/Jetty) e o Testcontainers. **Solução testada** (força o JVM a usar TCP loopback no lugar
+> do AF_UNIX):
+> ```bash
+> # PowerShell
+> $env:JAVA_TOOL_OPTIONS = "-Djdk.net.unixdomain.tmpdir=Z:\nope"   # Z:\nope = caminho inexistente
+> # bash
+> export JAVA_TOOL_OPTIONS="-Djdk.net.unixdomain.tmpdir=Z:/nope"
+> ```
+> Depois rode `./mvnw spring-boot:run` / `./mvnw verify` normalmente. (`netsh winsock reset` + reboot
+> **não** resolveu nesta máquina — o conserto definitivo é liberar o `java.exe` no antivírus.)
 
 ---
 
