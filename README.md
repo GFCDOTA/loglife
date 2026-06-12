@@ -75,6 +75,12 @@ A app sobe em `http://localhost:8080` e já serve a PWA na raiz.
 
 > O `./mvnw` baixa o Maven 3.9.16 na primeira execução. Não é preciso ter Maven instalado.
 
+> **Troubleshooting (Windows):** se o start falhar com `Unable to establish loopback connection` /
+> `java.net.SocketException: Invalid argument: connect`, o problema **não é a aplicação** — é o
+> SO/antivírus bloqueando conexões de loopback do `java.exe` (afeta qualquer servidor Java NIO e o
+> Testcontainers). Soluções: liberar o `java.exe`/JDK no antivírus/firewall, ou rodar
+> `netsh winsock reset` (admin) e reiniciar.
+
 ---
 
 ## Endpoints
@@ -178,8 +184,8 @@ Para plugar **seu** agente real: implemente esse endpoint (qualquer linguagem) e
 Actuator (`/actuator`): `health`, `info`, `metrics`, `prometheus`.
 
 Métricas custom:
-- `loglife.nutrition.estimates{source=LOCAL_AGENT|OLLAMA|MOCK}` — estimativas por fonte
-- `loglife.nutrition.local_agent.failures` — falhas do agente primário
+- `loglife.nutrition.estimates{source=LOCAL_AGENT|OLLAMA|MOCK}` — estimativas por fonte (conta em **todos** os providers, inclusive o mock)
+- `loglife.nutrition.primary.failures{provider=local-agent|ollama}` — falhas do agente local primário, por provider
 - `loglife.nutrition.estimation.fallbacks` — vezes que o fallback foi usado
 
 Logs estruturados nos pontos-chave: criação do food log, chamada ao agente, fallback acionado,
@@ -205,8 +211,9 @@ A PWA é servida pelo próprio Spring em `http://<host>:8080/` (mesma origem da 
 1. Descubra o IP da máquina: `ipconfig` (Windows) → ex. `192.168.0.10`.
 2. No Safari do iPhone abra `http://192.168.0.10:8080`.
 3. Compartilhar → **Adicionar à Tela de Início** (vira app standalone com ícone).
-4. CORS já está liberado (`loglife.cors.allowed-origins`, default `*` para uso local). Como a PWA
-   é same-origin, normalmente nem é necessário.
+4. Como a PWA é **same-origin**, **não precisa de CORS**. O default é vazio (nenhuma origem
+   cross-origin liberada). Só se for hospedar a UI em outra origem, libere explicitamente:
+   `LOGLIFE_CORS_ORIGINS=http://192.168.0.10:8080` — evite `*` (API sem auth e com escrita).
 
 Telas: registrar alimento/refeição, ver resumo do dia, ver lista do dia, excluir item.
 
