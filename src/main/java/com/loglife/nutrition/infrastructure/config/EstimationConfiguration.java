@@ -4,6 +4,7 @@ import com.loglife.nutrition.application.port.out.CalorieEstimationPort;
 import com.loglife.nutrition.infrastructure.estimation.CompositeCalorieEstimationAdapter;
 import com.loglife.nutrition.infrastructure.estimation.EstimationProperties;
 import com.loglife.nutrition.infrastructure.estimation.LocalAgentCalorieEstimationAdapter;
+import com.loglife.nutrition.infrastructure.estimation.MetricsRecordingCalorieEstimationAdapter;
 import com.loglife.nutrition.infrastructure.estimation.MockCalorieEstimationAdapter;
 import com.loglife.nutrition.infrastructure.estimation.OllamaCalorieEstimationAdapter;
 import com.loglife.nutrition.infrastructure.observability.NutritionMetrics;
@@ -11,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
@@ -37,47 +39,50 @@ public class EstimationConfiguration {
     }
 
     @Bean
+    @Primary
     CalorieEstimationPort calorieEstimationPort(EstimationProperties properties,
                                                 MockCalorieEstimationAdapter mock,
                                                 NutritionMetrics metrics,
-                                                ObjectMapper objectMapper,
-                                                RestClient.Builder restClientBuilder) {
+                                                ObjectMapper objectMapper) {
         String provider = properties.getProvider() == null
                 ? "mock"
                 : properties.getProvider().trim().toLowerCase();
 
-        return switch (provider) {
+        CalorieEstimationPort selected = switch (provider) {
             case "local-agent" -> {
                 log.info("Calorie estimation provider: local-agent ({})",
                         properties.getLocalAgent().getBaseUrl());
-                RestClient client = restClient(restClientBuilder,
+                RestClient client = restClient(
                         properties.getLocalAgent().getBaseUrl(),
                         properties.getLocalAgent().getTimeout());
                 CalorieEstimationPort primary = new LocalAgentCalorieEstimationAdapter(client);
-                yield new CompositeCalorieEstimationAdapter(primary, mock, metrics);
+                yield new CompositeCalorieEstimationAdapter(primary, mock, metrics, "local-agent");
             }
             case "ollama" -> {
                 log.info("Calorie estimation provider: ollama (model={} at {})",
                         properties.getOllama().getModel(), properties.getOllama().getBaseUrl());
-                RestClient client = restClient(restClientBuilder,
+                RestClient client = restClient(
                         properties.getOllama().getBaseUrl(),
                         properties.getOllama().getTimeout());
                 CalorieEstimationPort primary =
                         new OllamaCalorieEstimationAdapter(client, properties.getOllama().getModel(), objectMapper);
-                yield new CompositeCalorieEstimationAdapter(primary, mock, metrics);
+                yield new CompositeCalorieEstimationAdapter(primary, mock, metrics, "ollama");
             }
             default -> {
                 log.info("Calorie estimation provider: mock (no local agent configured)");
                 yield mock;
             }
         };
+
+        // Record the estimate-count metric uniformly for every provider (incl. mock).
+        return new MetricsRecordingCalorieEstimationAdapter(selected, metrics);
     }
 
-    private static RestClient restClient(RestClient.Builder builder, String baseUrl, Duration timeout) {
+    private static RestClient restClient(String baseUrl, Duration timeout) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout((int) timeout.toMillis());
         factory.setReadTimeout((int) timeout.toMillis());
-        return builder.clone()
+        return RestClient.builder()
                 .baseUrl(baseUrl)
                 .requestFactory(factory)
                 .build();
