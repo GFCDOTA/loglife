@@ -4,9 +4,12 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.util.List;
+
 /**
- * Enables CORS for the API so the PWA can be served from another origin (e.g. a phone hitting
- * {@code http://<machine-ip>:8080}). Origins are configurable via {@code loglife.cors.allowed-origins}.
+ * Enables CORS for the API only when explicit origins are configured via
+ * {@code loglife.cors.allowed-origins}. The bundled PWA is same-origin and needs no CORS, so by
+ * default no cross-origin access is granted (safer for an unauthenticated, write-capable API).
  */
 @Configuration
 public class WebCorsConfig implements WebMvcConfigurer {
@@ -19,8 +22,14 @@ public class WebCorsConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
+        List<String> origins = corsProperties.getAllowedOrigins().stream()
+                .filter(o -> o != null && !o.isBlank())
+                .toList();
+        if (origins.isEmpty()) {
+            return; // same-origin PWA needs no CORS; opt in by configuring explicit origins
+        }
         registry.addMapping("/api/**")
-                .allowedOriginPatterns(corsProperties.getAllowedOrigins().toArray(String[]::new))
+                .allowedOriginPatterns(origins.toArray(String[]::new))
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*");
     }

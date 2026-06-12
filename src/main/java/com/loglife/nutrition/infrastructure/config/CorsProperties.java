@@ -5,13 +5,15 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import java.util.List;
 
 /**
- * CORS configuration, bound from {@code loglife.cors.*}. Lets the PWA (served from a phone over
- * the LAN) call the API. Default is permissive ({@code *}) for a local-only MVP.
+ * CORS configuration, bound from {@code loglife.cors.*}. The PWA is served same-origin by this
+ * app, so it needs no CORS by default — the default is therefore an <em>empty</em> list (no
+ * cross-origin allowed). Set explicit origins to permit a separately hosted UI; avoid {@code *}
+ * since this is an unauthenticated, write-capable personal-data API.
  */
 @ConfigurationProperties(prefix = "loglife.cors")
 public class CorsProperties {
 
-    private List<String> allowedOrigins = List.of("*");
+    private List<String> allowedOrigins = List.of();
 
     public List<String> getAllowedOrigins() {
         return allowedOrigins;

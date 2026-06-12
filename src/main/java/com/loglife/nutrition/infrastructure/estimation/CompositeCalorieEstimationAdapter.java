@@ -11,9 +11,10 @@ import java.util.Objects;
 
 /**
  * Tries a primary estimator (a local agent) first; on failure, falls back to a controlled
- * estimator (the mock). Records metrics for failures and fallbacks, and logs when the fallback
- * is triggered. Both branches are defensive — a primary that throws despite the port contract
- * is treated as a failure, not a crash.
+ * estimator (the mock). Records the primary-failure and fallback metrics (the estimate-count
+ * metric is recorded uniformly by {@link MetricsRecordingCalorieEstimationAdapter}, which wraps
+ * this one). Both branches are defensive — a primary that throws despite the port contract is
+ * treated as a failure, not a crash.
  */
 public class CompositeCalorieEstimationAdapter implements CalorieEstimationPort {
 
@@ -22,30 +23,32 @@ public class CompositeCalorieEstimationAdapter implements CalorieEstimationPort 
     private final CalorieEstimationPort primary;
     private final CalorieEstimationPort fallback;
     private final NutritionMetrics metrics;
+    private final String providerName;
 
     public CompositeCalorieEstimationAdapter(CalorieEstimationPort primary,
                                              CalorieEstimationPort fallback,
-                                             NutritionMetrics metrics) {
+                                             NutritionMetrics metrics,
+                                             String providerName) {
         this.primary = Objects.requireNonNull(primary, "primary");
         this.fallback = Objects.requireNonNull(fallback, "fallback");
         this.metrics = Objects.requireNonNull(metrics, "metrics");
+        this.providerName = (providerName == null || providerName.isBlank()) ? "unknown" : providerName;
     }
 
     @Override
     public EstimationResult estimate(FoodDescription description) {
         EstimationResult primaryResult = safeEstimate(primary, description);
         if (primaryResult.isSuccess()) {
-            primaryResult.estimate().ifPresent(e -> metrics.recordEstimate(e.source()));
             return primaryResult;
         }
 
-        log.warn("Primary estimator failed ({}), using controlled fallback", primaryResult.failureReason());
-        metrics.recordLocalAgentFailure();
+        log.warn("Primary estimator '{}' failed ({}), using controlled fallback",
+                providerName, primaryResult.failureReason());
+        metrics.recordPrimaryFailure(providerName);
 
         EstimationResult fallbackResult = safeEstimate(fallback, description);
         if (fallbackResult.isSuccess()) {
             metrics.recordFallback();
-            fallbackResult.estimate().ifPresent(e -> metrics.recordEstimate(e.source()));
         }
         return fallbackResult;
     }

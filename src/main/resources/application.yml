@@ -29,8 +29,9 @@ management:
 
 loglife:
   cors:
-    # Comma-separated list. "*" is fine for a local/LAN-only MVP.
-    allowed-origins: ${LOGLIFE_CORS_ORIGINS:*}
+    # The bundled PWA is same-origin and needs no CORS, so the default is empty (no cross-origin).
+    # Set explicit origins to allow a separately hosted UI, e.g. LOGLIFE_CORS_ORIGINS=http://192.168.0.10:8080
+    allowed-origins: ${LOGLIFE_CORS_ORIGINS:}
   nutrition:
     estimation:
       # Which local agent to use as the primary estimator: mock | local-agent | ollama

@@ -10,6 +10,7 @@ import com.loglife.nutrition.domain.MealType;
 import com.loglife.nutrition.domain.NutritionEstimate;
 import com.loglife.nutrition.domain.NutritionFacts;
 import com.loglife.nutrition.infrastructure.observability.NutritionMetrics;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 
@@ -30,10 +31,10 @@ class CompositeCalorieEstimationAdapterTest {
             FoodQuantity.none(), "pt-BR");
 
     @Test
-    void usesFallbackAndRecordsMetricsWhenPrimaryFails() {
+    void usesFallbackAndRecordsFailureMetricTaggedByProvider() {
         CalorieEstimationPort primary = description -> EstimationResult.failure("agent offline");
         CompositeCalorieEstimationAdapter composite =
-                new CompositeCalorieEstimationAdapter(primary, fallback, metrics);
+                new CompositeCalorieEstimationAdapter(primary, fallback, metrics, "ollama");
 
         EstimationResult result = composite.estimate(DESCRIPTION);
 
@@ -42,9 +43,8 @@ class CompositeCalorieEstimationAdapterTest {
                 .extracting(NutritionEstimate::source)
                 .isEqualTo(EstimationSource.MOCK);
 
-        assertThat(counter("loglife.nutrition.local_agent.failures")).isEqualTo(1.0);
-        assertThat(counter("loglife.nutrition.estimation.fallbacks")).isEqualTo(1.0);
-        assertThat(sourceCounter("MOCK")).isEqualTo(1.0);
+        assertThat(primaryFailures("ollama")).isEqualTo(1.0);
+        assertThat(count("loglife.nutrition.estimation.fallbacks")).isEqualTo(1.0);
     }
 
     @Test
@@ -56,16 +56,15 @@ class CompositeCalorieEstimationAdapterTest {
                 Confidence.of(0.85), EstimationSource.LOCAL_AGENT, "ok", List.of());
         CalorieEstimationPort primary = description -> EstimationResult.success(primaryEstimate);
         CompositeCalorieEstimationAdapter composite =
-                new CompositeCalorieEstimationAdapter(primary, fallback, metrics);
+                new CompositeCalorieEstimationAdapter(primary, fallback, metrics, "local-agent");
 
         EstimationResult result = composite.estimate(DESCRIPTION);
 
         assertThat(result.estimate()).get()
                 .extracting(NutritionEstimate::source)
                 .isEqualTo(EstimationSource.LOCAL_AGENT);
-        assertThat(counter("loglife.nutrition.local_agent.failures")).isEqualTo(0.0);
-        assertThat(counter("loglife.nutrition.estimation.fallbacks")).isEqualTo(0.0);
-        assertThat(sourceCounter("LOCAL_AGENT")).isEqualTo(1.0);
+        assertThat(primaryFailures("local-agent")).isEqualTo(0.0);
+        assertThat(count("loglife.nutrition.estimation.fallbacks")).isEqualTo(0.0);
     }
 
     @Test
@@ -74,7 +73,7 @@ class CompositeCalorieEstimationAdapterTest {
             throw new IllegalStateException("boom");
         };
         CompositeCalorieEstimationAdapter composite =
-                new CompositeCalorieEstimationAdapter(primary, fallback, metrics);
+                new CompositeCalorieEstimationAdapter(primary, fallback, metrics, "local-agent");
 
         EstimationResult result = composite.estimate(DESCRIPTION);
 
@@ -82,14 +81,16 @@ class CompositeCalorieEstimationAdapterTest {
         assertThat(result.estimate()).get()
                 .extracting(NutritionEstimate::source)
                 .isEqualTo(EstimationSource.MOCK);
-        assertThat(counter("loglife.nutrition.local_agent.failures")).isEqualTo(1.0);
+        assertThat(primaryFailures("local-agent")).isEqualTo(1.0);
     }
 
-    private double counter(String name) {
-        return registry.get(name).counter().count();
+    private double count(String name) {
+        Counter c = registry.find(name).counter();
+        return c == null ? 0.0 : c.count();
     }
 
-    private double sourceCounter(String source) {
-        return registry.get("loglife.nutrition.estimates").tag("source", source).counter().count();
+    private double primaryFailures(String provider) {
+        Counter c = registry.find("loglife.nutrition.primary.failures").tag("provider", provider).counter();
+        return c == null ? 0.0 : c.count();
     }
 }
