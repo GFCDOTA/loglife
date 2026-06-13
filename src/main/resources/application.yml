@@ -43,7 +43,11 @@ loglife:
       ollama:
         base-url: ${LOGLIFE_OLLAMA_URL:http://localhost:11434}
         model: ${LOGLIFE_OLLAMA_MODEL:llama3.1:8b}
-        timeout: 30s
+        # Read timeout is generous (cold model load); connect is short so a down Ollama
+        # falls back to the mock quickly. keep-alive keeps the model warm between calls.
+        timeout: ${LOGLIFE_OLLAMA_TIMEOUT:120s}
+        connect-timeout: ${LOGLIFE_OLLAMA_CONNECT_TIMEOUT:5s}
+        keep-alive: ${LOGLIFE_OLLAMA_KEEP_ALIVE:30m}
 
 logging:
   level:

@@ -54,6 +54,7 @@ public class EstimationConfiguration {
                         properties.getLocalAgent().getBaseUrl());
                 RestClient client = restClient(
                         properties.getLocalAgent().getBaseUrl(),
+                        properties.getLocalAgent().getTimeout(),
                         properties.getLocalAgent().getTimeout());
                 CalorieEstimationPort primary = new LocalAgentCalorieEstimationAdapter(client);
                 yield new CompositeCalorieEstimationAdapter(primary, mock, metrics, "local-agent");
@@ -61,11 +62,15 @@ public class EstimationConfiguration {
             case "ollama" -> {
                 log.info("Calorie estimation provider: ollama (model={} at {})",
                         properties.getOllama().getModel(), properties.getOllama().getBaseUrl());
+                // Short connect (fail over to mock fast if Ollama is down) but long read
+                // (a cold model load can take tens of seconds).
                 RestClient client = restClient(
                         properties.getOllama().getBaseUrl(),
+                        properties.getOllama().getConnectTimeout(),
                         properties.getOllama().getTimeout());
-                CalorieEstimationPort primary =
-                        new OllamaCalorieEstimationAdapter(client, properties.getOllama().getModel(), objectMapper);
+                CalorieEstimationPort primary = new OllamaCalorieEstimationAdapter(
+                        client, properties.getOllama().getModel(),
+                        properties.getOllama().getKeepAlive(), objectMapper);
                 yield new CompositeCalorieEstimationAdapter(primary, mock, metrics, "ollama");
             }
             default -> {
@@ -78,10 +83,10 @@ public class EstimationConfiguration {
         return new MetricsRecordingCalorieEstimationAdapter(selected, metrics);
     }
 
-    private static RestClient restClient(String baseUrl, Duration timeout) {
+    private static RestClient restClient(String baseUrl, Duration connectTimeout, Duration readTimeout) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout((int) timeout.toMillis());
-        factory.setReadTimeout((int) timeout.toMillis());
+        factory.setConnectTimeout((int) connectTimeout.toMillis());
+        factory.setReadTimeout((int) readTimeout.toMillis());
         return RestClient.builder()
                 .baseUrl(baseUrl)
                 .requestFactory(factory)

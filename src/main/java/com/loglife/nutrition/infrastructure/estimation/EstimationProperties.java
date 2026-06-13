@@ -67,7 +67,12 @@ public class EstimationProperties {
     public static class Ollama {
         private String baseUrl = "http://localhost:11434";
         private String model = "llama3.1:8b";
-        private Duration timeout = Duration.ofSeconds(30);
+        /** Read timeout: generous because a cold model load can take tens of seconds. */
+        private Duration timeout = Duration.ofSeconds(120);
+        /** Connect timeout: short — if Ollama is not listening we want to fall back fast. */
+        private Duration connectTimeout = Duration.ofSeconds(5);
+        /** How long Ollama keeps the model loaded after a call, avoiding repeated cold starts. */
+        private String keepAlive = "30m";
 
         public String getBaseUrl() {
             return baseUrl;
@@ -91,6 +96,22 @@ public class EstimationProperties {
 
         public void setTimeout(Duration timeout) {
             this.timeout = timeout;
+        }
+
+        public Duration getConnectTimeout() {
+            return connectTimeout;
+        }
+
+        public void setConnectTimeout(Duration connectTimeout) {
+            this.connectTimeout = connectTimeout;
+        }
+
+        public String getKeepAlive() {
+            return keepAlive;
+        }
+
+        public void setKeepAlive(String keepAlive) {
+            this.keepAlive = keepAlive;
         }
     }
 }
