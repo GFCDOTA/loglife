@@ -5,6 +5,7 @@ import com.loglife.nutrition.application.port.out.CalorieEstimationPort;
 import com.loglife.nutrition.application.port.out.EstimationResult;
 import com.loglife.nutrition.application.port.out.FoodLogRepository;
 import com.loglife.nutrition.domain.Confidence;
+import com.loglife.nutrition.domain.EstimatedItem;
 import com.loglife.nutrition.domain.EstimationSource;
 import com.loglife.nutrition.domain.FoodDescription;
 import com.loglife.nutrition.domain.FoodLog;
@@ -61,14 +62,17 @@ class CreateFoodLogTest {
                 "Estimativa baseada nos alimentos informados.",
                 List.of());
         when(estimationPort.estimate(any())).thenReturn(EstimationResult.success(estimate));
-        when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(repository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         CreateFoodLog.Command command = new CreateFoodLog.Command(
                 LocalDate.of(2026, 6, 12), MealType.LUNCH,
                 "2 bifes médios e 200g de arroz", FoodQuantity.none(), "almoço", "pt-BR");
 
-        FoodLog saved = createFoodLog().handle(command);
+        List<FoodLog> result = createFoodLog().handle(command);
 
+        // No line items on the estimate -> one aggregate log.
+        assertThat(result).hasSize(1);
+        FoodLog saved = result.get(0);
         assertThat(saved.id()).isNotNull();
         assertThat(saved.date()).isEqualTo(LocalDate.of(2026, 6, 12));
         assertThat(saved.mealType()).isEqualTo(MealType.LUNCH);
@@ -99,6 +103,41 @@ class CreateFoodLogTest {
         assertThatThrownBy(() -> createFoodLog().handle(command))
                 .isInstanceOf(EstimationUnavailableException.class);
 
-        verify(repository, never()).save(any());
+        verify(repository, never()).saveAll(any());
+    }
+
+    @Test
+    void splitsMultiItemEstimateIntoOneLogPerItem() {
+        EstimatedItem bife = new EstimatedItem(
+                "bife bovino grelhado", BigDecimal.valueOf(2), "unidade média",
+                new NutritionFacts(BigDecimal.valueOf(420), BigDecimal.valueOf(52),
+                        BigDecimal.ZERO, BigDecimal.valueOf(22)),
+                Confidence.of(0.72));
+        EstimatedItem arroz = new EstimatedItem(
+                "arroz cozido", BigDecimal.valueOf(200), "g",
+                new NutritionFacts(BigDecimal.valueOf(260), BigDecimal.valueOf(5),
+                        BigDecimal.valueOf(56), BigDecimal.ONE),
+                Confidence.of(0.85));
+        NutritionEstimate estimate = NutritionEstimate.fromItems(
+                List.of(bife, arroz), EstimationSource.OLLAMA, "Itens estimados separadamente.");
+
+        when(estimationPort.estimate(any())).thenReturn(EstimationResult.success(estimate));
+        when(repository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CreateFoodLog.Command command = new CreateFoodLog.Command(
+                LocalDate.of(2026, 6, 12), MealType.DINNER,
+                "2 bifes e 200g de arroz", FoodQuantity.none(), null, "pt-BR");
+
+        List<FoodLog> result = createFoodLog().handle(command);
+
+        assertThat(result).hasSize(2);
+        assertThat(result).extracting(FoodLog::normalizedFoodName)
+                .containsExactly("bife bovino grelhado", "arroz cozido");
+        // Each per-item log keeps the original full text as provenance.
+        assertThat(result).allSatisfy(logEntry ->
+                assertThat(logEntry.descriptionOriginal()).isEqualTo("2 bifes e 200g de arroz"));
+        assertThat(result.get(0).source()).isEqualTo(EstimationSource.OLLAMA);
+        assertThat(result.get(1).quantity().amount()).isEqualByComparingTo("200");
+        assertThat(result.get(1).quantity().unit()).isEqualTo("g");
     }
 }

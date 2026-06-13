@@ -149,7 +149,12 @@ async function submitFood(event) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
         });
-        toast(`Registrado: ${num(created.calories)} kcal (${created.source})`);
+        // The API may split one entry into several logs (one per food item).
+        const items = Array.isArray(created) ? created : [created];
+        const totalCal = items.reduce((sum, x) => sum + (Number(x.calories) || 0), 0);
+        const src = items.length ? items[0].source : "";
+        const label = items.length === 1 ? "item" : "itens";
+        toast(`Registrado: ${items.length} ${label} · ${num(totalCal)} kcal (${src})`);
         el("description").value = "";
         el("quantity").value = "";
         el("unit").value = "";

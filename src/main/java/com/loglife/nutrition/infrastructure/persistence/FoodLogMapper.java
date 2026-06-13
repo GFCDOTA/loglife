@@ -8,6 +8,7 @@ import com.loglife.nutrition.domain.MealType;
 import com.loglife.nutrition.domain.NutritionFacts;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 /**
  * Maps between the {@link FoodLog} domain aggregate and its {@link FoodLogJpaEntity}
@@ -31,7 +32,7 @@ final class FoodLogMapper {
         entity.setProteinGrams(domain.nutrition().proteinGrams());
         entity.setCarbsGrams(domain.nutrition().carbsGrams());
         entity.setFatGrams(domain.nutrition().fatGrams());
-        entity.setConfidence(BigDecimal.valueOf(domain.confidence().value()));
+        entity.setConfidence(BigDecimal.valueOf(domain.confidence().value()).setScale(2, RoundingMode.HALF_UP));
         entity.setSource(domain.source().name());
         entity.setNotes(domain.notes());
         entity.setExplanation(domain.explanation());

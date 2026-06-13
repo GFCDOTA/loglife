@@ -54,11 +54,14 @@ class FoodLogApiIT extends AbstractPostgresIntegrationTest {
                 .POST(HttpRequest.BodyPublishers.ofString(createBody, StandardCharsets.UTF_8)).build());
 
         assertThat(created.statusCode()).isEqualTo(201);
-        Map<String, Object> createdJson = json.readValue(created.body(), Map.class);
-        assertThat(createdJson.get("mealType")).isEqualTo("LUNCH");
-        assertThat(createdJson.get("source")).isEqualTo("MOCK");
-        assertThat(((Number) createdJson.get("calories")).doubleValue()).isGreaterThan(0.0);
-        assertThat(((Number) createdJson.get("confidence")).doubleValue()).isEqualTo(0.2);
+        // POST now returns an array: one log per food item (MOCK yields a single item).
+        List<Object> createdJson = json.readValue(created.body(), List.class);
+        assertThat(createdJson).hasSize(1);
+        Map<String, Object> first = (Map<String, Object>) createdJson.get(0);
+        assertThat(first.get("mealType")).isEqualTo("LUNCH");
+        assertThat(first.get("source")).isEqualTo("MOCK");
+        assertThat(((Number) first.get("calories")).doubleValue()).isGreaterThan(0.0);
+        assertThat(((Number) first.get("confidence")).doubleValue()).isEqualTo(0.2);
 
         Matcher matcher = ID_PATTERN.matcher(created.body());
         assertThat(matcher.find()).isTrue();

@@ -1,11 +1,16 @@
 package com.loglife.nutrition.domain;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Objects;
 
 /**
  * Value object holding the nutritional totals for a portion of food. All values are
  * non-negative; a {@code null} component is normalised to {@link BigDecimal#ZERO}.
+ *
+ * <p>Every component is normalised to scale 2 (two decimal places, {@link RoundingMode#HALF_UP}),
+ * matching the {@code NUMERIC(10,2)} storage columns, so the value held in memory is exactly the
+ * value that is persisted — daily totals computed before saving stay equal after reloading.
  */
 public record NutritionFacts(
         BigDecimal calories,
@@ -39,6 +44,7 @@ public record NutritionFacts(
         if (value.signum() < 0) {
             throw new IllegalArgumentException(field + " must not be negative, got: " + value);
         }
-        return value;
+        // Normalise to the persisted precision so in-memory totals match what the DB stores.
+        return value.setScale(2, RoundingMode.HALF_UP);
     }
 }
