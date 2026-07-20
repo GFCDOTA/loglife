@@ -102,6 +102,33 @@ class FoodLogApiIT extends AbstractPostgresIntegrationTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void manualNutritionEntryBypassesEstimation() throws Exception {
+        String body = """
+                {
+                  "date": "%s",
+                  "mealType": "SNACK",
+                  "description": "barra de proteína (rótulo)",
+                  "quantity": 45,
+                  "unit": "g",
+                  "nutrition": { "calories": 180, "proteinGrams": 20, "carbsGrams": 15, "fatGrams": 5 }
+                }
+                """.formatted(DATE);
+        HttpResponse<String> created = send(request("/api/v1/food-logs")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8)).build());
+
+        assertThat(created.statusCode()).isEqualTo(201);
+        List<Object> createdJson = json.readValue(created.body(), List.class);
+        assertThat(createdJson).hasSize(1);
+        Map<String, Object> log = (Map<String, Object>) createdJson.get(0);
+        assertThat(log.get("source")).isEqualTo("MANUAL");
+        assertThat(((Number) log.get("confidence")).doubleValue()).isEqualTo(1.0);
+        assertThat(((Number) log.get("calories")).doubleValue()).isEqualTo(180.0);
+        assertThat(((Number) log.get("quantity")).doubleValue()).isEqualTo(45.0);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void editsLogWithoutReestimatingAndSummaryReflectsOverride() throws Exception {
         // create (mock estimator decides the numbers)
         String createBody = """

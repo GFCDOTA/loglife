@@ -4,11 +4,14 @@ import com.loglife.nutrition.application.EstimationUnavailableException;
 import com.loglife.nutrition.application.port.out.CalorieEstimationPort;
 import com.loglife.nutrition.application.port.out.EstimationResult;
 import com.loglife.nutrition.application.port.out.FoodLogRepository;
+import com.loglife.nutrition.domain.Confidence;
+import com.loglife.nutrition.domain.EstimationSource;
 import com.loglife.nutrition.domain.FoodDescription;
 import com.loglife.nutrition.domain.FoodLog;
 import com.loglife.nutrition.domain.FoodQuantity;
 import com.loglife.nutrition.domain.MealType;
 import com.loglife.nutrition.domain.NutritionEstimate;
+import com.loglife.nutrition.domain.NutritionFacts;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,7 +45,8 @@ public class CreateFoodLog {
             String description,
             FoodQuantity quantity,
             String notes,
-            String language) {
+            String language,
+            NutritionFacts nutrition) {
     }
 
     /**
@@ -56,6 +60,20 @@ public class CreateFoodLog {
      */
     public List<FoodLog> handle(Command command) {
         Objects.requireNonNull(command, "command");
+
+        if (command.nutrition() != null) {
+            // The user typed the values from a label: no estimation, full confidence, MANUAL.
+            log.info("Creating manual food log date={} mealType={}", command.date(), command.mealType());
+            NutritionEstimate manual = new NutritionEstimate(
+                    command.description(), command.quantity(), command.nutrition(),
+                    Confidence.of(1.0), EstimationSource.MANUAL, null, List.of());
+            List<FoodLog> saved = repository.saveAll(List.of(FoodLog.create(
+                    command.date(), command.mealType(), command.description(),
+                    command.quantity(), command.notes(), manual, clock.instant())));
+            log.info("Food log created count=1 source=MANUAL totalCalories={}",
+                    command.nutrition().calories());
+            return saved;
+        }
 
         FoodDescription description = new FoodDescription(
                 command.description(), command.date(), command.mealType(),
