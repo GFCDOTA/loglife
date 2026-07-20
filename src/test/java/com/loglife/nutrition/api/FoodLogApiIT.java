@@ -222,6 +222,35 @@ class FoodLogApiIT extends AbstractPostgresIntegrationTest {
     }
 
     @Test
+    void exportsCsvForThePeriod() throws Exception {
+        send(request("/api/v1/food-logs")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString("""
+                        {
+                          "date": "%s", "mealType": "LUNCH", "description": "arroz, feijão e \\"bife\\"",
+                          "nutrition": { "calories": 600, "proteinGrams": 40, "carbsGrams": 60, "fatGrams": 15 }
+                        }
+                        """.formatted(DATE), StandardCharsets.UTF_8)).build());
+
+        HttpResponse<String> csv = send(
+                request("/api/v1/food-logs/export?from=2026-06-01&to=2026-06-30").GET().build());
+
+        assertThat(csv.statusCode()).isEqualTo(200);
+        assertThat(csv.headers().firstValue("Content-Type").orElse("")).startsWith("text/csv");
+        assertThat(csv.headers().firstValue("Content-Disposition").orElse(""))
+                .contains("loglife_2026-06-01_2026-06-30.csv");
+        List<String> lines = csv.body().lines().toList();
+        assertThat(lines.get(0)).startsWith("date,mealType,name");
+        assertThat(lines).hasSize(2);
+        assertThat(lines.get(1)).contains("\"arroz, feijão e \"\"bife\"\"\"");
+
+        // inverted period is the client's mistake -> structured 400, not a 500
+        HttpResponse<String> inverted = send(
+                request("/api/v1/food-logs/export?from=2026-06-30&to=2026-06-01").GET().build());
+        assertThat(inverted.statusCode()).isEqualTo(400);
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void rejectsInvalidRequestWithStructuredError() throws Exception {
         String body = """
