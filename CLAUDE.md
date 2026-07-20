@@ -15,6 +15,11 @@ Actuator + Micrometer/Prometheus + Flyway + PostgreSQL. Package raiz
 - `mvn test` — unitários (surefire).
 - `mvn verify` — integração `*IT` (failsafe) + **Testcontainers PG real**.
 - `mvn spring-boot:run` — sobe a app (Tomcat :8080).
+- ⚠️ **`JAVA_HOME` da máquina aponta pro JDK 21** (Temurin 21.0.11), mas o projeto
+  é **Java 25** → surefire quebra com "class file version 69.0". Rodar SEMPRE com
+  `JAVA_HOME="C:\Program Files\Eclipse Adoptium\jdk-25.0.2.10-hotspot"` no comando
+  (verificado 2026-07-20: 20 testes verdes assim). Conserto real = atualizar o
+  JAVA_HOME do Windows (decisão do Felipe; muda o ambiente global).
 - ⚠️ **`java.exe` loopback BLOQUEADO nesta máquina** (`Selector.open()` EINVAL;
   `netsh winsock reset`+reboot não resolve). A app **não sobe live aqui** sem
   `JAVA_TOOL_OPTIONS=-Djdk.net.unixdomain.tmpdir=Z:\nope` (força TCP loopback).
