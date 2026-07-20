@@ -48,8 +48,9 @@ com.loglife.nutrition
    é config (`EstimationProperties`), não código de domínio.
 3. **`@Transactional` na borda do use case**, nunca no domínio/controller.
 4. **Develop-first** — branch `feat/`|`fix/`|`chore/`; nunca direto em main.
-5. ⚠️ **Repo SEM remote git ainda** — disco morre = backend perdido. Criar
-   remote + push é prioridade de segurança (audit W1).
+5. **Remote = `github.com/fmodesto30/loglife.git`** — toda fatia landada termina
+   pushada na main (CI do GitHub roda as ITs Testcontainers que esta máquina
+   não roda).
 
 Detalhe técnico e gotchas Boot 4 (Jackson=`tools.jackson`, `spring-boot-starter-flyway`,
 sem bean `RestClient.Builder`, JDK 25 + Mockito argLine): `java-spring.md`.
