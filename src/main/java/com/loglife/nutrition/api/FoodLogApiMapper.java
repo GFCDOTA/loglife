@@ -23,7 +23,12 @@ final class FoodLogApiMapper {
     }
 
     static CreateFoodLog.Command toCommand(CreateFoodLogRequest request) {
-        MealType mealType = MealType.fromString(request.mealType());
+        MealType mealType;
+        try {
+            mealType = MealType.fromString(request.mealType());
+        } catch (IllegalArgumentException ex) {
+            throw new InvalidRequestException("mealType", ex.getMessage());
+        }
         FoodQuantity quantity = (request.quantity() != null || request.unit() != null)
                 ? FoodQuantity.of(request.quantity(), request.unit())
                 : FoodQuantity.none();

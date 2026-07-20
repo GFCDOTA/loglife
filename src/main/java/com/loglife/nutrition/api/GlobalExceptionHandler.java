@@ -41,12 +41,21 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({
             MissingServletRequestParameterException.class,
             MethodArgumentTypeMismatchException.class,
-            HttpMessageNotReadableException.class,
-            IllegalArgumentException.class
+            HttpMessageNotReadableException.class
     })
     public ResponseEntity<ApiError> handleBadRequest(Exception ex, HttpServletRequest request) {
         log.warn("Bad request on {}: {}", request.getRequestURI(), ex.getMessage());
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request, List.of());
+    }
+
+    // Deliberately NOT IllegalArgumentException: a bare IAE is a broken domain invariant — our
+    // bug, not the client's — and must fall through to the 500 catch-all below.
+    @ExceptionHandler(InvalidRequestException.class)
+    public ResponseEntity<ApiError> handleInvalidRequest(InvalidRequestException ex,
+                                                         HttpServletRequest request) {
+        log.warn("Bad request on {}: {}", request.getRequestURI(), ex.getMessage());
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request,
+                List.of(new ApiError.FieldError(ex.field(), ex.getMessage())));
     }
 
     @ExceptionHandler(FoodLogNotFoundException.class)
