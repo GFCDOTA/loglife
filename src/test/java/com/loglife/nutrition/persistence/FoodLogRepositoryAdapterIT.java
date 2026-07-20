@@ -5,6 +5,7 @@ import com.loglife.nutrition.domain.Confidence;
 import com.loglife.nutrition.domain.EstimationSource;
 import com.loglife.nutrition.domain.FoodLog;
 import com.loglife.nutrition.domain.FoodQuantity;
+import com.loglife.nutrition.domain.FrequentFood;
 import com.loglife.nutrition.domain.MealType;
 import com.loglife.nutrition.domain.NutritionEstimate;
 import com.loglife.nutrition.domain.NutritionFacts;
@@ -63,6 +64,28 @@ class FoodLogRepositoryAdapterIT extends AbstractPostgresIntegrationTest {
     }
 
     @Test
+    void frequentFoodsGroupByNameOrderByCountAndRespectWindow() {
+        LocalDate today = LocalDate.of(2026, 7, 20);
+        // "café com leite" 3x inside the window (latest on the 19th), "pão" 2x, "sopa" only
+        // outside the window (>30 days ago) — must not appear.
+        adapter.save(namedLog("café com leite", today.minusDays(3), Instant.parse("2026-07-17T08:00:00Z")));
+        adapter.save(namedLog("café com leite", today.minusDays(2), Instant.parse("2026-07-18T08:00:00Z")));
+        adapter.save(namedLog("café com leite", today.minusDays(1), Instant.parse("2026-07-19T08:00:00Z")));
+        adapter.save(namedLog("pão", today.minusDays(2), Instant.parse("2026-07-18T09:00:00Z")));
+        adapter.save(namedLog("pão", today.minusDays(1), Instant.parse("2026-07-19T09:00:00Z")));
+        adapter.save(namedLog("sopa", today.minusDays(40), Instant.parse("2026-06-10T20:00:00Z")));
+
+        List<FrequentFood> frequent = adapter.findFrequentSince(today.minusDays(30), 8);
+
+        assertThat(frequent).extracting(f -> f.lastLog().normalizedFoodName())
+                .containsExactly("café com leite", "pão");
+        assertThat(frequent.get(0).timesLogged()).isEqualTo(3);
+        // The carried log is the LATEST one of that name (its nutrition is what repeat clones).
+        assertThat(frequent.get(0).lastLog().date()).isEqualTo(today.minusDays(1));
+        assertThat(frequent.get(1).timesLogged()).isEqualTo(2);
+    }
+
+    @Test
     void deleteReturnsTrueThenFalse() {
         FoodLog saved = adapter.save(sampleLog(LocalDate.of(2026, 8, 1), MealType.SNACK));
 
@@ -74,6 +97,16 @@ class FoodLogRepositoryAdapterIT extends AbstractPostgresIntegrationTest {
 
     private static FoodLog sampleLog(LocalDate date, MealType mealType) {
         return sampleLog(date, mealType, Instant.parse("2026-06-12T12:00:00Z"));
+    }
+
+    private static FoodLog namedLog(String foodName, LocalDate date, Instant createdAt) {
+        NutritionEstimate estimate = new NutritionEstimate(
+                foodName, FoodQuantity.none(),
+                new NutritionFacts(BigDecimal.valueOf(120), BigDecimal.valueOf(6),
+                        BigDecimal.valueOf(10), BigDecimal.valueOf(6)),
+                Confidence.of(0.8), EstimationSource.OLLAMA, "ok", List.of());
+        return FoodLog.create(date, MealType.BREAKFAST, foodName,
+                FoodQuantity.none(), null, estimate, createdAt);
     }
 
     private static FoodLog sampleLog(LocalDate date, MealType mealType, Instant createdAt) {

@@ -3,15 +3,19 @@ package com.loglife.nutrition.api;
 import com.loglife.nutrition.api.dto.CreateFoodLogRequest;
 import com.loglife.nutrition.api.dto.DailyNutritionSummaryResponse;
 import com.loglife.nutrition.api.dto.FoodLogResponse;
+import com.loglife.nutrition.api.dto.FrequentFoodResponse;
 import com.loglife.nutrition.api.dto.NutritionGoalRequest;
 import com.loglife.nutrition.api.dto.NutritionGoalResponse;
 import com.loglife.nutrition.api.dto.NutritionValuesRequest;
+import com.loglife.nutrition.api.dto.RepeatFoodLogRequest;
 import com.loglife.nutrition.api.dto.UpdateFoodLogRequest;
 import com.loglife.nutrition.application.usecase.CreateFoodLog;
+import com.loglife.nutrition.application.usecase.RepeatFoodLog;
 import com.loglife.nutrition.application.usecase.UpdateFoodLog;
 import com.loglife.nutrition.domain.DailyNutritionSummary;
 import com.loglife.nutrition.domain.FoodLog;
 import com.loglife.nutrition.domain.FoodQuantity;
+import com.loglife.nutrition.domain.FrequentFood;
 import com.loglife.nutrition.domain.MealType;
 import com.loglife.nutrition.domain.NutritionFacts;
 import com.loglife.nutrition.domain.NutritionGoal;
@@ -110,6 +114,31 @@ final class FoodLogApiMapper {
                 summary.totalLogs(),
                 byMeal,
                 goal);
+    }
+
+    static RepeatFoodLog.Command toCommand(UUID sourceId, RepeatFoodLogRequest request) {
+        MealType mealType = null;
+        if (request.mealType() != null) {
+            try {
+                mealType = MealType.fromString(request.mealType());
+            } catch (IllegalArgumentException ex) {
+                throw new InvalidRequestException("mealType", ex.getMessage());
+            }
+        }
+        return new RepeatFoodLog.Command(sourceId, request.date(), mealType);
+    }
+
+    static FrequentFoodResponse toResponse(FrequentFood frequent) {
+        FoodLog last = frequent.lastLog();
+        NutritionFacts n = last.nutrition();
+        return new FrequentFoodResponse(
+                last.id(),
+                last.normalizedFoodName() != null ? last.normalizedFoodName() : last.descriptionOriginal(),
+                frequent.timesLogged(),
+                last.mealType().name(),
+                n.calories(), n.proteinGrams(), n.carbsGrams(), n.fatGrams(),
+                last.quantity().amount(), last.quantity().unit(),
+                last.source().name());
     }
 
     static NutritionGoal toDomain(NutritionGoalRequest request) {
