@@ -2,14 +2,17 @@ package com.loglife.nutrition.api;
 
 import com.loglife.nutrition.api.dto.CreateFoodLogRequest;
 import com.loglife.nutrition.api.dto.FoodLogResponse;
+import com.loglife.nutrition.api.dto.UpdateFoodLogRequest;
 import com.loglife.nutrition.application.usecase.CreateFoodLog;
 import com.loglife.nutrition.application.usecase.DeleteFoodLog;
 import com.loglife.nutrition.application.usecase.ListFoodLogsByDate;
+import com.loglife.nutrition.application.usecase.UpdateFoodLog;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -33,13 +36,16 @@ public class FoodLogController {
     private final CreateFoodLog createFoodLog;
     private final ListFoodLogsByDate listFoodLogsByDate;
     private final DeleteFoodLog deleteFoodLog;
+    private final UpdateFoodLog updateFoodLog;
 
     public FoodLogController(CreateFoodLog createFoodLog,
                             ListFoodLogsByDate listFoodLogsByDate,
-                            DeleteFoodLog deleteFoodLog) {
+                            DeleteFoodLog deleteFoodLog,
+                            UpdateFoodLog updateFoodLog) {
         this.createFoodLog = createFoodLog;
         this.listFoodLogsByDate = listFoodLogsByDate;
         this.deleteFoodLog = deleteFoodLog;
+        this.updateFoodLog = updateFoodLog;
     }
 
     @PostMapping
@@ -57,6 +63,13 @@ public class FoodLogController {
         return listFoodLogsByDate.handle(date).stream()
                 .map(FoodLogApiMapper::toResponse)
                 .toList();
+    }
+
+    @PatchMapping("/{id}")
+    public FoodLogResponse update(@PathVariable UUID id,
+                                  @Valid @RequestBody UpdateFoodLogRequest request) {
+        return FoodLogApiMapper.toResponse(
+                updateFoodLog.handle(FoodLogApiMapper.toCommand(id, request)));
     }
 
     @DeleteMapping("/{id}")

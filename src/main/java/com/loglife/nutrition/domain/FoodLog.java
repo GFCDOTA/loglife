@@ -106,6 +106,33 @@ public final class FoodLog {
         return (safeAmount != null || hasUnit) ? new FoodQuantity(safeAmount, unit) : FoodQuantity.none();
     }
 
+    /**
+     * Apply a user edit, returning a new instance. {@code null} means "keep the current value".
+     * Editing the nutrition numbers reclassifies the log as {@link EstimationSource#USER_OVERRIDE}
+     * with full confidence — the user's own correction outranks any estimator. Metadata-only edits
+     * keep the original estimation provenance untouched.
+     */
+    public FoodLog withUserEdits(LocalDate newDate, MealType newMealType, String newDescription,
+                                 FoodQuantity newQuantity, String newNotes,
+                                 NutritionFacts overriddenNutrition, Instant now) {
+        Objects.requireNonNull(now, "now");
+        boolean overrides = overriddenNutrition != null;
+        return new FoodLog(
+                id,
+                newDate != null ? newDate : date,
+                newMealType != null ? newMealType : mealType,
+                newDescription != null ? newDescription : descriptionOriginal,
+                normalizedFoodName,
+                (newQuantity != null && newQuantity.isPresent()) ? newQuantity : quantity,
+                overrides ? overriddenNutrition : nutrition,
+                overrides ? Confidence.of(1.0) : confidence,
+                overrides ? EstimationSource.USER_OVERRIDE : source,
+                newNotes != null ? newNotes : notes,
+                explanation,
+                createdAt,
+                now);
+    }
+
     /** Reconstitute an existing food log loaded from a persistence adapter. */
     public static FoodLog reconstitute(UUID id, LocalDate date, MealType mealType, String descriptionOriginal,
                                        String normalizedFoodName, FoodQuantity quantity, NutritionFacts nutrition,
