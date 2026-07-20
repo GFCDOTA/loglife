@@ -24,6 +24,9 @@ public interface FoodLogRepository {
 
     List<FoodLog> findByDate(LocalDate date);
 
+    /** All logs with {@code start <= date <= end}, ordered by date then creation time. */
+    List<FoodLog> findByDateBetween(LocalDate start, LocalDate end);
+
     Optional<FoodLog> findById(UUID id);
 
     /**

@@ -157,6 +157,20 @@ main {
 }
 .empty { color: var(--muted); text-align: center; padding: 12px 0; }
 
+/* 7-day trend */
+.trend-bars {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    gap: 6px; height: 76px; padding: 4px 2px 0;
+}
+.trend-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.trend-col small { font-size: 10px; color: var(--muted); }
+.trend-bar {
+    width: 100%; max-width: 34px; border-radius: 6px 6px 2px 2px;
+    background: var(--line);
+}
+.trend-bar.today { background: var(--green, #16a34a); }
+.trend-foot { font-size: 12px; color: var(--muted); text-align: center; margin-top: 6px; }
+
 /* Frequent chips */
 .freq-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .freq-chip { text-align: left; }
