@@ -203,6 +203,13 @@ function renderList(logs) {
             badge.className = "badge-mock";
             badge.textContent = "ESTIMATIVA MOCK";
             main.appendChild(badge);
+
+            const redo = document.createElement("button");
+            redo.type = "button";
+            redo.className = "link-btn reestimate-btn";
+            redo.textContent = "re-estimar";
+            redo.onclick = () => reestimateLog(log.id, redo);
+            main.appendChild(redo);
         }
 
         const cal = document.createElement("div");
@@ -217,6 +224,20 @@ function renderList(logs) {
 
         item.append(main, cal, del);
         list.appendChild(item);
+    }
+}
+
+async function reestimateLog(id, btn) {
+    btn.disabled = true;
+    btn.textContent = "re-estimando...";
+    try {
+        const updated = await api("/api/v1/food-logs/" + id + "/re-estimate", { method: "POST" });
+        toast(`Re-estimado: ${num(updated.calories)} kcal (${updated.source})`);
+        loadDay();
+    } catch (e) {
+        toast("Falha ao re-estimar: " + e.message, true);
+        btn.disabled = false;
+        btn.textContent = "re-estimar";
     }
 }
 

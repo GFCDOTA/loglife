@@ -222,6 +222,37 @@ class FoodLogApiIT extends AbstractPostgresIntegrationTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void reestimatesLogInPlaceKeepingIdentity() throws Exception {
+        HttpResponse<String> created = send(request("/api/v1/food-logs")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString("""
+                        { "date": "%s", "mealType": "DINNER", "description": "sopa de legumes" }
+                        """.formatted(DATE), StandardCharsets.UTF_8)).build());
+        Matcher matcher = ID_PATTERN.matcher(created.body());
+        assertThat(matcher.find()).isTrue();
+        String id = matcher.group(1);
+
+        HttpResponse<String> reestimated = send(request("/api/v1/food-logs/" + id + "/re-estimate")
+                .POST(HttpRequest.BodyPublishers.noBody()).build());
+
+        assertThat(reestimated.statusCode()).isEqualTo(200);
+        Map<String, Object> log = json.readValue(reestimated.body(), Map.class);
+        assertThat(log.get("id")).isEqualTo(id);
+        assertThat(log.get("date")).isEqualTo(DATE);
+        assertThat(((Number) log.get("calories")).doubleValue()).isGreaterThan(0.0);
+
+        // still ONE row for the day
+        HttpResponse<String> list = send(request("/api/v1/food-logs?date=" + DATE).GET().build());
+        assertThat(json.readValue(list.body(), List.class)).hasSize(1);
+
+        // unknown id -> structured 404
+        HttpResponse<String> missing = send(request("/api/v1/food-logs/" + UUID.randomUUID() + "/re-estimate")
+                .POST(HttpRequest.BodyPublishers.noBody()).build());
+        assertThat(missing.statusCode()).isEqualTo(404);
+    }
+
+    @Test
     void exportsCsvForThePeriod() throws Exception {
         send(request("/api/v1/food-logs")
                 .header("Content-Type", "application/json")

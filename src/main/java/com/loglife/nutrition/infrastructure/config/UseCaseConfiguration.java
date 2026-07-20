@@ -11,6 +11,7 @@ import com.loglife.nutrition.application.usecase.GetNutritionGoal;
 import com.loglife.nutrition.application.usecase.GetNutritionTrend;
 import com.loglife.nutrition.application.usecase.ListFoodLogsByDate;
 import com.loglife.nutrition.application.usecase.ListFoodLogsByPeriod;
+import com.loglife.nutrition.application.usecase.ReestimateFoodLog;
 import com.loglife.nutrition.application.usecase.RepeatFoodLog;
 import com.loglife.nutrition.application.usecase.SetNutritionGoal;
 import com.loglife.nutrition.application.usecase.UpdateFoodLog;
@@ -87,5 +88,12 @@ public class UseCaseConfiguration {
     @Bean
     ListFoodLogsByPeriod listFoodLogsByPeriod(FoodLogRepository repository) {
         return new ListFoodLogsByPeriod(repository);
+    }
+
+    @Bean
+    ReestimateFoodLog reestimateFoodLog(FoodLogRepository repository,
+                                        CalorieEstimationPort estimationPort,
+                                        Clock clock) {
+        return new ReestimateFoodLog(repository, estimationPort, clock);
     }
 }

@@ -151,6 +151,7 @@ main {
     background: var(--amber-bg); color: var(--amber);
     font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px;
 }
+.reestimate-btn { display: inline-block; margin: 4px 0 0 8px; }
 .del-btn {
     border: none; background: transparent; color: #b91c1c;
     font-size: 20px; line-height: 1; padding: 4px;
