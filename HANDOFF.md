@@ -132,6 +132,13 @@ JAVA_TOOL_OPTIONS="-Djdk.net.unixdomain.tmpdir=Z:\nope" ./mvnw spring-boot:run  
 - **Não** deixar branch/PR aberta ao fim da sessão (landar ou descartar).
 
 ## 11. Checkpoint
+
+**2026-07-20 (sessão de execução) — fundação #1–#4 LANDADA na main, CI VERDE (primeiro da
+história do repo).** #1 exec bit + push só main; #2 descoberta real: além da poluição de dados,
+o `@Container` static parava o PG após a 1ª classe (ITs nunca tinham sido verdes juntas) →
+container singleton + truncate em `@BeforeEach` + ordenação assertada; #3 transporte não re-tenta
+(mata o pior caso 240s) + flag `fallback-to-mock` (503 agora é alcançável e tem IT); #4 IAE=500
+honesto + `InvalidRequestException` com fieldError. Suíte: 25 unit + 7 IT.
 Kickoff montado em 2026-07-20: branch antiga validada e mergeada (`main @ 561e3d4`),
 auditoria completa, roadmap priorizado, gotcha novo do JAVA_HOME documentado, CLAUDE.md
 corrigido (remote existe; regra 5 antiga obsoleta). **Primeiro movimento da próxima
