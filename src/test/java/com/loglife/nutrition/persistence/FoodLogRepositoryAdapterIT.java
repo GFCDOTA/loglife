@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Persistence test for {@link FoodLogRepositoryAdapter} against a real PostgreSQL, exercising the
@@ -83,6 +84,26 @@ class FoodLogRepositoryAdapterIT extends AbstractPostgresIntegrationTest {
         // The carried log is the LATEST one of that name (its nutrition is what repeat clones).
         assertThat(frequent.get(0).lastLog().date()).isEqualTo(today.minusDays(1));
         assertThat(frequent.get(1).timesLogged()).isEqualTo(2);
+    }
+
+    @Test
+    void saveAllIsAtomicWhenOneRowViolatesTheSchema() {
+        LocalDate day = LocalDate.of(2026, 9, 1);
+        // The domain only forbids negatives; 1e9 kcal passes it but overflows NUMERIC(10,2),
+        // so the SECOND row fails at flush — the first must roll back with it.
+        FoodLog ok = sampleLog(day, MealType.LUNCH);
+        FoodLog overflows = FoodLog.create(day, MealType.DINNER, "log inválido",
+                FoodQuantity.none(), null,
+                new NutritionEstimate("estouro", FoodQuantity.none(),
+                        new NutritionFacts(BigDecimal.valueOf(1_000_000_000L), BigDecimal.ONE,
+                                BigDecimal.ONE, BigDecimal.ONE),
+                        Confidence.of(0.5), EstimationSource.MOCK, null, List.of()),
+                Instant.parse("2026-09-01T12:00:00Z"));
+
+        assertThatThrownBy(() -> adapter.saveAll(List.of(ok, overflows)))
+                .isInstanceOf(Exception.class);
+
+        assertThat(adapter.findByDate(day)).isEmpty();
     }
 
     @Test
