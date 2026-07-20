@@ -157,6 +157,24 @@ main {
 }
 .empty { color: var(--muted); text-align: center; padding: 12px 0; }
 
+/* Daily goal */
+.goal { margin-top: 10px; }
+.goal-bar {
+    height: 10px; border-radius: 999px; background: var(--line); overflow: hidden;
+}
+.goal-fill {
+    height: 100%; width: 0; border-radius: 999px;
+    background: var(--green, #16a34a);
+    transition: width .3s ease;
+}
+.goal-fill.over { background: #b91c1c; }
+.goal-info { margin-top: 6px; font-size: 12px; color: var(--muted); text-align: center; }
+.link-btn {
+    border: none; background: transparent; padding: 0;
+    color: var(--green-dark); font-size: 12px; font-weight: 700;
+    text-decoration: underline; cursor: pointer;
+}
+
 /* Toast */
 .toast {
     position: fixed;

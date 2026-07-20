@@ -3,6 +3,8 @@ package com.loglife.nutrition.api;
 import com.loglife.nutrition.api.dto.CreateFoodLogRequest;
 import com.loglife.nutrition.api.dto.DailyNutritionSummaryResponse;
 import com.loglife.nutrition.api.dto.FoodLogResponse;
+import com.loglife.nutrition.api.dto.NutritionGoalRequest;
+import com.loglife.nutrition.api.dto.NutritionGoalResponse;
 import com.loglife.nutrition.api.dto.NutritionValuesRequest;
 import com.loglife.nutrition.api.dto.UpdateFoodLogRequest;
 import com.loglife.nutrition.application.usecase.CreateFoodLog;
@@ -12,6 +14,7 @@ import com.loglife.nutrition.domain.FoodLog;
 import com.loglife.nutrition.domain.FoodQuantity;
 import com.loglife.nutrition.domain.MealType;
 import com.loglife.nutrition.domain.NutritionFacts;
+import com.loglife.nutrition.domain.NutritionGoal;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -93,10 +96,29 @@ final class FoodLogApiMapper {
             byMeal.put(mealType.name(), new DailyNutritionSummaryResponse.MealTypeBucket(
                     bucket.count(), bn.calories(), bn.proteinGrams(), bn.carbsGrams(), bn.fatGrams()));
         });
+        DailyNutritionSummaryResponse.GoalBlock goal = null;
+        if (summary.goalProgress() != null) {
+            DailyNutritionSummary.GoalProgress p = summary.goalProgress();
+            goal = new DailyNutritionSummaryResponse.GoalBlock(
+                    p.goal().calories(), p.goal().proteinGrams(),
+                    p.goal().carbsGrams(), p.goal().fatGrams(),
+                    p.remainingCalories(), p.percentOfCalories());
+        }
         return new DailyNutritionSummaryResponse(
                 summary.date(),
                 t.calories(), t.proteinGrams(), t.carbsGrams(), t.fatGrams(),
                 summary.totalLogs(),
-                byMeal);
+                byMeal,
+                goal);
+    }
+
+    static NutritionGoal toDomain(NutritionGoalRequest request) {
+        return new NutritionGoal(request.calories(), request.proteinGrams(),
+                request.carbsGrams(), request.fatGrams());
+    }
+
+    static NutritionGoalResponse toResponse(NutritionGoal goal) {
+        return new NutritionGoalResponse(goal.calories(), goal.proteinGrams(),
+                goal.carbsGrams(), goal.fatGrams());
     }
 }
