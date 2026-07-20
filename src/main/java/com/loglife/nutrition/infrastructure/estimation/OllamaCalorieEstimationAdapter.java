@@ -11,6 +11,7 @@ import com.loglife.nutrition.domain.NutritionEstimate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
@@ -141,7 +142,13 @@ public class OllamaCalorieEstimationAdapter implements CalorieEstimationPort {
                 log.debug("Ollama produced estimate: items={} calories={} (attempt {})",
                         estimate.items().size(), estimate.nutrition().calories(), attempt);
                 return EstimationResult.success(estimate);
+            } catch (RestClientException ex) {
+                // Transport/HTTP failure: Ollama is down, unreachable or broken. Retrying cannot
+                // help and can hang for another full read timeout (120s), so fail immediately.
+                log.warn("Ollama transport failure, not retrying: {}", ex.toString());
+                return EstimationResult.failure("ollama transport error: " + ex.getMessage());
             } catch (Exception ex) {
+                // Unparseable/invalid model output: one more attempt is cheap and often enough.
                 last = ex;
                 log.warn("Ollama estimation attempt {}/{} failed: {}", attempt, MAX_ATTEMPTS, ex.toString());
             }

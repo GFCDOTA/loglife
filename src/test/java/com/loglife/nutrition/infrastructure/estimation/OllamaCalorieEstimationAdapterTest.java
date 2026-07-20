@@ -15,6 +15,7 @@ import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.net.SocketTimeoutException;
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -23,6 +24,8 @@ import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 /**
@@ -103,6 +106,34 @@ class OllamaCalorieEstimationAdapterTest {
         assertThat(result.isFailure()).isTrue();
         assertThat(result.failureReason()).contains("attempts");
         server.verify(); // proves it retried exactly twice
+    }
+
+    @Test
+    void failsImmediatelyWithoutRetryOnTransportError() {
+        RestClient.Builder builder = RestClient.builder().baseUrl(BASE_URL);
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(ExpectedCount.once(), requestTo(BASE_URL + "/api/chat"))
+                .andRespond(withException(new SocketTimeoutException("read timed out")));
+
+        EstimationResult result = adapter(builder).estimate(DESCRIPTION);
+
+        assertThat(result.isFailure()).isTrue();
+        assertThat(result.failureReason()).contains("transport");
+        server.verify(); // a second attempt would mean re-waiting the full read timeout
+    }
+
+    @Test
+    void failsImmediatelyWithoutRetryOnHttpServerError() {
+        RestClient.Builder builder = RestClient.builder().baseUrl(BASE_URL);
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(ExpectedCount.once(), requestTo(BASE_URL + "/api/chat"))
+                .andRespond(withServerError());
+
+        EstimationResult result = adapter(builder).estimate(DESCRIPTION);
+
+        assertThat(result.isFailure()).isTrue();
+        assertThat(result.failureReason()).contains("transport");
+        server.verify();
     }
 
     @Test
