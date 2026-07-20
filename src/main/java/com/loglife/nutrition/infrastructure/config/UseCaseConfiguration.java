@@ -6,8 +6,10 @@ import com.loglife.nutrition.application.port.out.NutritionGoalRepository;
 import com.loglife.nutrition.application.usecase.CreateFoodLog;
 import com.loglife.nutrition.application.usecase.DeleteFoodLog;
 import com.loglife.nutrition.application.usecase.GetDailyNutritionSummary;
+import com.loglife.nutrition.application.usecase.GetFrequentFoods;
 import com.loglife.nutrition.application.usecase.GetNutritionGoal;
 import com.loglife.nutrition.application.usecase.ListFoodLogsByDate;
+import com.loglife.nutrition.application.usecase.RepeatFoodLog;
 import com.loglife.nutrition.application.usecase.SetNutritionGoal;
 import com.loglife.nutrition.application.usecase.UpdateFoodLog;
 import org.springframework.context.annotation.Bean;
@@ -63,5 +65,15 @@ public class UseCaseConfiguration {
     @Bean
     UpdateFoodLog updateFoodLog(FoodLogRepository repository, Clock clock) {
         return new UpdateFoodLog(repository, clock);
+    }
+
+    @Bean
+    GetFrequentFoods getFrequentFoods(FoodLogRepository repository) {
+        return new GetFrequentFoods(repository);
+    }
+
+    @Bean
+    RepeatFoodLog repeatFoodLog(FoodLogRepository repository, Clock clock) {
+        return new RepeatFoodLog(repository, clock);
     }
 }

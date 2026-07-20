@@ -1,6 +1,7 @@
 package com.loglife.nutrition.application.port.out;
 
 import com.loglife.nutrition.domain.FoodLog;
+import com.loglife.nutrition.domain.FrequentFood;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -29,4 +30,11 @@ public interface FoodLogRepository {
      * @return {@code true} if a row was deleted, {@code false} if no such id existed.
      */
     boolean deleteById(UUID id);
+
+    /**
+     * The foods logged most often since {@code since} (inclusive), most frequent first, at most
+     * {@code limit} entries. Each entry carries the LATEST log of that food, whose nutrition is
+     * what a "repeat" clones.
+     */
+    List<FrequentFood> findFrequentSince(LocalDate since, int limit);
 }

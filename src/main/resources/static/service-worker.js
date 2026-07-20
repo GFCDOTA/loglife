@@ -1,5 +1,5 @@
 // Minimal offline-friendly service worker: cache the app shell, always go to network for the API.
-const CACHE = "loglife-shell-v1";
+const CACHE = "loglife-shell-v2";
 const SHELL = [
     ".",
     "index.html",
@@ -29,8 +29,15 @@ self.addEventListener("fetch", (event) => {
         return; // default network behaviour
     }
 
-    // App shell: cache-first, fall back to network.
+    // App shell: network-first so UI updates reach the phone immediately; the cache is only the
+    // offline fallback. (Cache-first froze the shell at install time — stale UI on every deploy.)
     event.respondWith(
-        caches.match(event.request).then((cached) => cached || fetch(event.request))
+        fetch(event.request)
+            .then((response) => {
+                const copy = response.clone();
+                caches.open(CACHE).then((c) => c.put(event.request, copy)).catch(() => { /* best-effort */ });
+                return response;
+            })
+            .catch(() => caches.match(event.request))
     );
 });

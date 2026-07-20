@@ -46,14 +46,48 @@ function toast(message, isError) {
 async function loadDay() {
     const date = currentDate();
     try {
-        const [logs, summary] = await Promise.all([
+        const [logs, summary, frequent] = await Promise.all([
             api("/api/v1/food-logs?date=" + date),
             api("/api/v1/nutrition/daily-summary?date=" + date),
+            api("/api/v1/food-logs/frequent?date=" + date),
         ]);
         renderSummary(summary);
         renderList(logs);
+        renderFrequent(frequent);
     } catch (e) {
         toast("Falha ao carregar: " + e.message, true);
+    }
+}
+
+function renderFrequent(foods) {
+    const card = el("frequentCard");
+    const chips = el("frequentChips");
+    chips.innerHTML = "";
+    card.hidden = !foods || foods.length === 0;
+    if (card.hidden) return;
+
+    for (const food of foods) {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "chip freq-chip";
+        chip.textContent = `${food.name} · ${num(food.calories)} kcal`;
+        chip.title = `Registrado ${food.timesLogged}x nos últimos 30 dias`;
+        chip.onclick = () => repeatFood(food);
+        chips.appendChild(chip);
+    }
+}
+
+async function repeatFood(food) {
+    try {
+        await api("/api/v1/food-logs/" + food.logId + "/repeat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ date: currentDate(), mealType: selectedMeal }),
+        });
+        toast(`Repetido: ${food.name} · ${num(food.calories)} kcal (sem re-estimar)`);
+        loadDay();
+    } catch (e) {
+        toast("Falha ao repetir: " + e.message, true);
     }
 }
 

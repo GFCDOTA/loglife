@@ -2,6 +2,7 @@ package com.loglife.nutrition.infrastructure.persistence;
 
 import com.loglife.nutrition.application.port.out.FoodLogRepository;
 import com.loglife.nutrition.domain.FoodLog;
+import com.loglife.nutrition.domain.FrequentFood;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,6 +45,23 @@ public class FoodLogRepositoryAdapter implements FoodLogRepository {
     @Override
     public Optional<FoodLog> findById(UUID id) {
         return jpa.findById(id).map(FoodLogMapper::toDomain);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<FrequentFood> findFrequentSince(LocalDate since, int limit) {
+        // Two-step on purpose: an aggregate for the top names, then the latest row per name.
+        // limit is small (UI chips), so the N+1 here is a handful of indexed point queries.
+        return jpa.countFrequentNamesSince(since, limit).stream()
+                .map(row -> {
+                    String name = (String) row[0];
+                    int count = ((Number) row[1]).intValue();
+                    FoodLogJpaEntity latest = jpa
+                            .findFirstByNormalizedFoodNameAndLogDateGreaterThanEqualOrderByCreatedAtDesc(
+                                    name, since);
+                    return new FrequentFood(FoodLogMapper.toDomain(latest), count);
+                })
+                .toList();
     }
 
     @Override

@@ -178,6 +178,51 @@ class FoodLogApiIT extends AbstractPostgresIntegrationTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void frequentFoodsFeedOneTapRepeatWithoutEstimation() throws Exception {
+        // Log the same snack twice (manual values -> deterministic, no estimator noise).
+        for (int i = 0; i < 2; i++) {
+            HttpResponse<String> created = send(request("/api/v1/food-logs")
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString("""
+                            {
+                              "date": "%s", "mealType": "SNACK", "description": "iogurte com granola",
+                              "nutrition": { "calories": 220, "proteinGrams": 12, "carbsGrams": 30, "fatGrams": 6 }
+                            }
+                            """.formatted(DATE), StandardCharsets.UTF_8)).build());
+            assertThat(created.statusCode()).isEqualTo(201);
+        }
+
+        // frequent: grouped to ONE chip with count 2
+        HttpResponse<String> frequent =
+                send(request("/api/v1/food-logs/frequent?date=" + DATE).GET().build());
+        assertThat(frequent.statusCode()).isEqualTo(200);
+        List<Object> chips = json.readValue(frequent.body(), List.class);
+        assertThat(chips).hasSize(1);
+        Map<String, Object> chip = (Map<String, Object>) chips.get(0);
+        assertThat(chip.get("name")).isEqualTo("iogurte com granola");
+        assertThat(((Number) chip.get("timesLogged")).intValue()).isEqualTo(2);
+        String sourceLogId = (String) chip.get("logId");
+
+        // repeat onto another day: clones nutrition, keeps provenance, no LLM involved
+        HttpResponse<String> repeated = send(request("/api/v1/food-logs/" + sourceLogId + "/repeat")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString("""
+                        { "date": "2026-06-13" }
+                        """, StandardCharsets.UTF_8)).build());
+        assertThat(repeated.statusCode()).isEqualTo(201);
+        Map<String, Object> repeatedLog = json.readValue(repeated.body(), Map.class);
+        assertThat(repeatedLog.get("date")).isEqualTo("2026-06-13");
+        assertThat(((Number) repeatedLog.get("calories")).doubleValue()).isEqualTo(220.0);
+        assertThat(repeatedLog.get("source")).isEqualTo("MANUAL");
+        assertThat(repeatedLog.get("id")).isNotEqualTo(sourceLogId);
+
+        // the new day now lists exactly the repeated entry
+        HttpResponse<String> nextDay = send(request("/api/v1/food-logs?date=2026-06-13").GET().build());
+        assertThat(json.readValue(nextDay.body(), List.class)).hasSize(1);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void rejectsInvalidRequestWithStructuredError() throws Exception {
         String body = """
                 { "date": "%s", "mealType": "", "description": "x" }

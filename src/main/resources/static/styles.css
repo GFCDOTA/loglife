@@ -157,6 +157,10 @@ main {
 }
 .empty { color: var(--muted); text-align: center; padding: 12px 0; }
 
+/* Frequent chips */
+.freq-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.freq-chip { text-align: left; }
+
 /* Daily goal */
 .goal { margin-top: 10px; }
 .goal-bar {

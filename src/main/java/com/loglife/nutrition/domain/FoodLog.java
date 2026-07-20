@@ -133,6 +133,21 @@ public final class FoodLog {
                 now);
     }
 
+    /**
+     * Clone this log onto a new date (repeating an everyday meal) — the persisted nutrition is
+     * reused as-is, so no estimator is involved. Provenance (source, confidence) is preserved:
+     * the numbers still come from wherever they originally came from.
+     */
+    public FoodLog repeatedOn(LocalDate newDate, MealType newMealType, Instant now) {
+        Objects.requireNonNull(newDate, "newDate");
+        Objects.requireNonNull(now, "now");
+        return new FoodLog(
+                UUID.randomUUID(), newDate,
+                newMealType != null ? newMealType : mealType,
+                descriptionOriginal, normalizedFoodName, quantity, nutrition,
+                confidence, source, notes, explanation, now, now);
+    }
+
     /** Reconstitute an existing food log loaded from a persistence adapter. */
     public static FoodLog reconstitute(UUID id, LocalDate date, MealType mealType, String descriptionOriginal,
                                        String normalizedFoodName, FoodQuantity quantity, NutritionFacts nutrition,
