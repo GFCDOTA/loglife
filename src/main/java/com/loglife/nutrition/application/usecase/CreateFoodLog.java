@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Objects;
 
@@ -32,11 +33,14 @@ public class CreateFoodLog {
     private final CalorieEstimationPort estimationPort;
     private final FoodLogRepository repository;
     private final Clock clock;
+    private final ZoneId zone;
 
-    public CreateFoodLog(CalorieEstimationPort estimationPort, FoodLogRepository repository, Clock clock) {
+    public CreateFoodLog(CalorieEstimationPort estimationPort, FoodLogRepository repository,
+                         Clock clock, ZoneId zone) {
         this.estimationPort = Objects.requireNonNull(estimationPort, "estimationPort");
         this.repository = Objects.requireNonNull(repository, "repository");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.zone = Objects.requireNonNull(zone, "zone");
     }
 
     public record Command(
@@ -60,27 +64,33 @@ public class CreateFoodLog {
      */
     public List<FoodLog> handle(Command command) {
         Objects.requireNonNull(command, "command");
+        // Dates normally come from the client (avoids server-timezone bugs); when a shortcut/voice
+        // entry omits it, resolve "today" in the CONFIGURED timezone, never the server default.
+        final Command cmd = command.date() != null ? command : new Command(
+                clock.instant().atZone(zone).toLocalDate(), command.mealType(),
+                command.description(), command.quantity(), command.notes(),
+                command.language(), command.nutrition());
 
-        if (command.nutrition() != null) {
+        if (cmd.nutrition() != null) {
             // The user typed the values from a label: no estimation, full confidence, MANUAL.
-            log.info("Creating manual food log date={} mealType={}", command.date(), command.mealType());
+            log.info("Creating manual food log date={} mealType={}", cmd.date(), cmd.mealType());
             NutritionEstimate manual = new NutritionEstimate(
-                    command.description(), command.quantity(), command.nutrition(),
+                    cmd.description(), cmd.quantity(), cmd.nutrition(),
                     Confidence.of(1.0), EstimationSource.MANUAL, null, List.of());
             List<FoodLog> saved = repository.saveAll(List.of(FoodLog.create(
-                    command.date(), command.mealType(), command.description(),
-                    command.quantity(), command.notes(), manual, clock.instant())));
+                    cmd.date(), cmd.mealType(), cmd.description(),
+                    cmd.quantity(), cmd.notes(), manual, clock.instant())));
             log.info("Food log created count=1 source=MANUAL totalCalories={}",
-                    command.nutrition().calories());
+                    cmd.nutrition().calories());
             return saved;
         }
 
         FoodDescription description = new FoodDescription(
-                command.description(), command.date(), command.mealType(),
-                command.quantity(), command.language());
+                cmd.description(), cmd.date(), cmd.mealType(),
+                cmd.quantity(), cmd.language());
 
         // Privacy: never log the raw food text at INFO; only structural fields.
-        log.info("Creating food log date={} mealType={}", command.date(), command.mealType());
+        log.info("Creating food log date={} mealType={}", cmd.date(), cmd.mealType());
         log.debug("Estimating nutrition for rawText='{}'", description.rawText());
 
         EstimationResult result = estimationPort.estimate(description);
@@ -94,14 +104,14 @@ public class CreateFoodLog {
             // One log per food item — the description is kept on each as provenance.
             toSave = estimate.items().stream()
                     .map(item -> FoodLog.fromItem(
-                            command.date(), command.mealType(), command.description(),
-                            item, estimate.source(), estimate.explanation(), command.notes(), now))
+                            cmd.date(), cmd.mealType(), cmd.description(),
+                            item, estimate.source(), estimate.explanation(), cmd.notes(), now))
                     .toList();
         } else {
             // No line items (e.g. the agent returned only a total): keep one aggregate log.
             toSave = List.of(FoodLog.create(
-                    command.date(), command.mealType(), command.description(),
-                    command.quantity(), command.notes(), estimate, now));
+                    cmd.date(), cmd.mealType(), cmd.description(),
+                    cmd.quantity(), cmd.notes(), estimate, now));
         }
 
         List<FoodLog> saved = repository.saveAll(toSave);
