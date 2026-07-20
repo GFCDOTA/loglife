@@ -84,6 +84,10 @@ tendências — consumido pela PWA no iPhone. Java 25 / Spring Boot 4.1 / hexago
 10. **Export CSV** (reusa o between).
 12. **Logs MOCK visíveis + re-estimar** (badge na PWA; POST re-estimate reusa o update).
 14. **Date opcional** com timezone configurada (destrava log por atalho/voz).
+15. **Grounding nutricional (P0 herdado de 2026-06-23, a auditoria não via):** tabela
+    **TACO** local + lookup leve no prompt do Ollama pro 8b escalar valores reais por-100g
+    em vez de inventar. Pré-requisitos: decidir a FONTE da TACO + golden-set de ~30 pratos
+    pra medir antes/depois. Encaixar após o #6 (a entrada manual já dá o fallback humano).
 
 **Hardening (quando a superfície importar):**
 11. **Rede:** bind 127.0.0.1 por default; token estático `X-Api-Token` quando exposto na
