@@ -148,6 +148,22 @@ public final class FoodLog {
                 confidence, source, notes, explanation, now, now);
     }
 
+    /**
+     * Replace the numbers with a fresh estimate of the same description, keeping the log's
+     * identity, day and notes. Used to upgrade a low-trust entry (e.g. MOCK logged while the
+     * real estimator was down). A multi-item estimate is applied as its aggregate — the log
+     * stays ONE row.
+     */
+    public FoodLog withFreshEstimate(NutritionEstimate estimate, Instant now) {
+        Objects.requireNonNull(estimate, "estimate");
+        Objects.requireNonNull(now, "now");
+        return new FoodLog(
+                id, date, mealType, descriptionOriginal,
+                estimate.foodName(), quantity, estimate.nutrition(),
+                estimate.confidence(), estimate.source(), notes, estimate.explanation(),
+                createdAt, now);
+    }
+
     /** Reconstitute an existing food log loaded from a persistence adapter. */
     public static FoodLog reconstitute(UUID id, LocalDate date, MealType mealType, String descriptionOriginal,
                                        String normalizedFoodName, FoodQuantity quantity, NutritionFacts nutrition,

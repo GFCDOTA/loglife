@@ -10,6 +10,7 @@ import com.loglife.nutrition.application.usecase.DeleteFoodLog;
 import com.loglife.nutrition.application.usecase.GetFrequentFoods;
 import com.loglife.nutrition.application.usecase.ListFoodLogsByDate;
 import com.loglife.nutrition.application.usecase.ListFoodLogsByPeriod;
+import com.loglife.nutrition.application.usecase.ReestimateFoodLog;
 import com.loglife.nutrition.application.usecase.RepeatFoodLog;
 import com.loglife.nutrition.application.usecase.UpdateFoodLog;
 import jakarta.validation.Valid;
@@ -46,6 +47,7 @@ public class FoodLogController {
     private final GetFrequentFoods getFrequentFoods;
     private final RepeatFoodLog repeatFoodLog;
     private final ListFoodLogsByPeriod listFoodLogsByPeriod;
+    private final ReestimateFoodLog reestimateFoodLog;
 
     public FoodLogController(CreateFoodLog createFoodLog,
                             ListFoodLogsByDate listFoodLogsByDate,
@@ -53,7 +55,8 @@ public class FoodLogController {
                             UpdateFoodLog updateFoodLog,
                             GetFrequentFoods getFrequentFoods,
                             RepeatFoodLog repeatFoodLog,
-                            ListFoodLogsByPeriod listFoodLogsByPeriod) {
+                            ListFoodLogsByPeriod listFoodLogsByPeriod,
+                            ReestimateFoodLog reestimateFoodLog) {
         this.createFoodLog = createFoodLog;
         this.listFoodLogsByDate = listFoodLogsByDate;
         this.deleteFoodLog = deleteFoodLog;
@@ -61,6 +64,7 @@ public class FoodLogController {
         this.getFrequentFoods = getFrequentFoods;
         this.repeatFoodLog = repeatFoodLog;
         this.listFoodLogsByPeriod = listFoodLogsByPeriod;
+        this.reestimateFoodLog = reestimateFoodLog;
     }
 
     @PostMapping
@@ -113,6 +117,11 @@ public class FoodLogController {
                                   @Valid @RequestBody RepeatFoodLogRequest request) {
         return FoodLogApiMapper.toResponse(
                 repeatFoodLog.handle(FoodLogApiMapper.toCommand(id, request)));
+    }
+
+    @PostMapping("/{id}/re-estimate")
+    public FoodLogResponse reestimate(@PathVariable UUID id) {
+        return FoodLogApiMapper.toResponse(reestimateFoodLog.handle(id));
     }
 
     @PatchMapping("/{id}")
