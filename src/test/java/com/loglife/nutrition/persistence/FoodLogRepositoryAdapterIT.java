@@ -47,15 +47,17 @@ class FoodLogRepositoryAdapterIT extends AbstractPostgresIntegrationTest {
     }
 
     @Test
-    void findsByDateOnlyAndOrders() {
+    void findsByDateOnlyAndOrdersByCreatedAtAsc() {
         LocalDate day = LocalDate.of(2026, 7, 1);
-        adapter.save(sampleLog(day, MealType.BREAKFAST));
-        adapter.save(sampleLog(day, MealType.DINNER));
+        // Saved out of creation order on purpose: DINNER was logged first (earlier createdAt).
+        adapter.save(sampleLog(day, MealType.BREAKFAST, Instant.parse("2026-07-01T12:00:00Z")));
+        adapter.save(sampleLog(day, MealType.DINNER, Instant.parse("2026-07-01T08:00:00Z")));
 
         List<FoodLog> onDate = adapter.findByDate(day);
         List<FoodLog> otherDay = adapter.findByDate(day.plusDays(1));
 
-        assertThat(onDate).hasSize(2);
+        assertThat(onDate).extracting(FoodLog::mealType)
+                .containsExactly(MealType.DINNER, MealType.BREAKFAST);
         assertThat(onDate).allSatisfy(log -> assertThat(log.date()).isEqualTo(day));
         assertThat(otherDay).isEmpty();
     }
@@ -71,6 +73,10 @@ class FoodLogRepositoryAdapterIT extends AbstractPostgresIntegrationTest {
     }
 
     private static FoodLog sampleLog(LocalDate date, MealType mealType) {
+        return sampleLog(date, mealType, Instant.parse("2026-06-12T12:00:00Z"));
+    }
+
+    private static FoodLog sampleLog(LocalDate date, MealType mealType, Instant createdAt) {
         NutritionEstimate estimate = new NutritionEstimate(
                 "bife bovino grelhado + arroz cozido",
                 FoodQuantity.of(BigDecimal.valueOf(200), "g"),
@@ -78,7 +84,6 @@ class FoodLogRepositoryAdapterIT extends AbstractPostgresIntegrationTest {
                         BigDecimal.valueOf(56), BigDecimal.valueOf(23)),
                 Confidence.of(0.78), EstimationSource.LOCAL_AGENT, "ok", List.of());
         return FoodLog.create(date, mealType, "2 bifes médios e 200g de arroz",
-                FoodQuantity.of(BigDecimal.valueOf(200), "g"), "nota", estimate,
-                Instant.parse("2026-06-12T12:00:00Z"));
+                FoodQuantity.of(BigDecimal.valueOf(200), "g"), "nota", estimate, createdAt);
     }
 }
