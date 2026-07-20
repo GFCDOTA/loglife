@@ -24,6 +24,13 @@ function currentDate() {
 }
 
 async function api(path, options) {
+    // Optional static token when the server is exposed on the LAN:
+    // localStorage.setItem('loglife.apiToken', '<value of LOGLIFE_API_TOKEN>')
+    const token = localStorage.getItem("loglife.apiToken");
+    if (token) {
+        options = options || {};
+        options.headers = Object.assign({}, options.headers, { "X-Api-Token": token });
+    }
     const res = await fetch(API_BASE + path, options);
     const text = await res.text();
     const data = text ? JSON.parse(text) : null;
