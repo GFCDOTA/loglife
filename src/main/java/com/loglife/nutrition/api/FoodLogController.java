@@ -9,11 +9,13 @@ import com.loglife.nutrition.application.usecase.CreateFoodLog;
 import com.loglife.nutrition.application.usecase.DeleteFoodLog;
 import com.loglife.nutrition.application.usecase.GetFrequentFoods;
 import com.loglife.nutrition.application.usecase.ListFoodLogsByDate;
+import com.loglife.nutrition.application.usecase.ListFoodLogsByPeriod;
 import com.loglife.nutrition.application.usecase.RepeatFoodLog;
 import com.loglife.nutrition.application.usecase.UpdateFoodLog;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -43,19 +45,22 @@ public class FoodLogController {
     private final UpdateFoodLog updateFoodLog;
     private final GetFrequentFoods getFrequentFoods;
     private final RepeatFoodLog repeatFoodLog;
+    private final ListFoodLogsByPeriod listFoodLogsByPeriod;
 
     public FoodLogController(CreateFoodLog createFoodLog,
                             ListFoodLogsByDate listFoodLogsByDate,
                             DeleteFoodLog deleteFoodLog,
                             UpdateFoodLog updateFoodLog,
                             GetFrequentFoods getFrequentFoods,
-                            RepeatFoodLog repeatFoodLog) {
+                            RepeatFoodLog repeatFoodLog,
+                            ListFoodLogsByPeriod listFoodLogsByPeriod) {
         this.createFoodLog = createFoodLog;
         this.listFoodLogsByDate = listFoodLogsByDate;
         this.deleteFoodLog = deleteFoodLog;
         this.updateFoodLog = updateFoodLog;
         this.getFrequentFoods = getFrequentFoods;
         this.repeatFoodLog = repeatFoodLog;
+        this.listFoodLogsByPeriod = listFoodLogsByPeriod;
     }
 
     @PostMapping
@@ -73,6 +78,20 @@ public class FoodLogController {
         return listFoodLogsByDate.handle(date).stream()
                 .map(FoodLogApiMapper::toResponse)
                 .toList();
+    }
+
+    @GetMapping(value = "/export", produces = "text/csv")
+    public ResponseEntity<String> exportCsv(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        if (to.isBefore(from)) {
+            throw new InvalidRequestException("to", "'to' must not be before 'from'");
+        }
+        String csv = FoodLogCsvWriter.write(listFoodLogsByPeriod.handle(from, to));
+        return ResponseEntity.ok()
+                .header("Content-Disposition",
+                        "attachment; filename=\"loglife_" + from + "_" + to + ".csv\"")
+                .body(csv);
     }
 
     @GetMapping("/frequent")

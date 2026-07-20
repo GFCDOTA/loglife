@@ -10,6 +10,7 @@ import com.loglife.nutrition.application.usecase.GetFrequentFoods;
 import com.loglife.nutrition.application.usecase.GetNutritionGoal;
 import com.loglife.nutrition.application.usecase.GetNutritionTrend;
 import com.loglife.nutrition.application.usecase.ListFoodLogsByDate;
+import com.loglife.nutrition.application.usecase.ListFoodLogsByPeriod;
 import com.loglife.nutrition.application.usecase.RepeatFoodLog;
 import com.loglife.nutrition.application.usecase.SetNutritionGoal;
 import com.loglife.nutrition.application.usecase.UpdateFoodLog;
@@ -81,5 +82,10 @@ public class UseCaseConfiguration {
     @Bean
     GetNutritionTrend getNutritionTrend(FoodLogRepository repository) {
         return new GetNutritionTrend(repository);
+    }
+
+    @Bean
+    ListFoodLogsByPeriod listFoodLogsByPeriod(FoodLogRepository repository) {
+        return new ListFoodLogsByPeriod(repository);
     }
 }
