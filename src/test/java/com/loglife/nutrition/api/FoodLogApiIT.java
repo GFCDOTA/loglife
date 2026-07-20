@@ -223,6 +223,25 @@ class FoodLogApiIT extends AbstractPostgresIntegrationTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void missingDateDefaultsToTodayInConfiguredTimezone() throws Exception {
+        String body = """
+                {
+                  "mealType": "SNACK", "description": "iogurte por atalho de voz",
+                  "nutrition": { "calories": 100, "proteinGrams": 10, "carbsGrams": 10, "fatGrams": 1 }
+                }
+                """;
+        HttpResponse<String> created = send(request("/api/v1/food-logs")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8)).build());
+
+        assertThat(created.statusCode()).isEqualTo(201);
+        Map<String, Object> log = (Map<String, Object>) json.readValue(created.body(), List.class).get(0);
+        String expected = java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")).toString();
+        assertThat(log.get("date")).isEqualTo(expected);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void reestimatesLogInPlaceKeepingIdentity() throws Exception {
         HttpResponse<String> created = send(request("/api/v1/food-logs")
                 .header("Content-Type", "application/json")

@@ -2,7 +2,6 @@ package com.loglife.nutrition.api.dto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
@@ -12,7 +11,8 @@ import java.time.LocalDate;
 /**
  * Request body for {@code POST /api/v1/food-logs}.
  *
- * @param date        the day of the entry (required)
+ * @param date        the day of the entry; omitted = "today" in the server's configured timezone
+ *                    (voice/shortcut entries can skip it)
  * @param mealType    BREAKFAST | LUNCH | DINNER | SNACK | OTHER (required)
  * @param description free-text food description, e.g. "2 bifes médios e 200g de arroz" (required, min 2 chars)
  * @param quantity   optional amount
@@ -22,7 +22,6 @@ import java.time.LocalDate;
  * @param nutrition  optional label values; when present the LLM is skipped entirely (source MANUAL)
  */
 public record CreateFoodLogRequest(
-        @NotNull(message = "date is required")
         LocalDate date,
 
         @NotBlank(message = "mealType is required")

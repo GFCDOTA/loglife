@@ -19,6 +19,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Clock;
+import java.time.ZoneId;
 
 /**
  * Wires the framework-agnostic use cases as Spring beans. The use cases and the domain stay
@@ -33,10 +34,16 @@ public class UseCaseConfiguration {
     }
 
     @Bean
+    ZoneId userZone(NutritionProperties properties) {
+        return ZoneId.of(properties.getTimezone());
+    }
+
+    @Bean
     CreateFoodLog createFoodLog(CalorieEstimationPort estimationPort,
                                 FoodLogRepository repository,
-                                Clock clock) {
-        return new CreateFoodLog(estimationPort, repository, clock);
+                                Clock clock,
+                                ZoneId userZone) {
+        return new CreateFoodLog(estimationPort, repository, clock, userZone);
     }
 
     @Bean

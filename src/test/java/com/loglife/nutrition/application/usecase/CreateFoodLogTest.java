@@ -24,6 +24,7 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
 
@@ -48,7 +49,25 @@ class CreateFoodLogTest {
     private FoodLogRepository repository;
 
     private CreateFoodLog createFoodLog() {
-        return new CreateFoodLog(estimationPort, repository, fixedClock);
+        return new CreateFoodLog(estimationPort, repository, fixedClock, ZoneId.of("America/Sao_Paulo"));
+    }
+
+    @Test
+    void missingDateResolvesToTodayInTheConfiguredTimezone() {
+        when(repository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // 2026-06-12T01:15:30Z is still 2026-06-11 in São Paulo (UTC-3): the user logging a late
+        // snack from a voice shortcut must not land on "tomorrow".
+        Clock lateNight = Clock.fixed(Instant.parse("2026-06-12T01:15:30Z"), ZoneOffset.UTC);
+        CreateFoodLog useCase = new CreateFoodLog(
+                estimationPort, repository, lateNight, ZoneId.of("America/Sao_Paulo"));
+
+        List<FoodLog> result = useCase.handle(new CreateFoodLog.Command(
+                null, MealType.SNACK, "iogurte", FoodQuantity.none(), null, "pt-BR",
+                new NutritionFacts(BigDecimal.valueOf(100), BigDecimal.TEN,
+                        BigDecimal.TEN, BigDecimal.ONE)));
+
+        assertThat(result.get(0).date()).isEqualTo(LocalDate.of(2026, 6, 11));
     }
 
     @Test
