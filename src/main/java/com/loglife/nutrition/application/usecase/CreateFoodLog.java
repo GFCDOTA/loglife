@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -44,7 +45,16 @@ public class CreateFoodLog {
             String language) {
     }
 
-    public FoodLog handle(Command command) {
+    /**
+     * Estimate the nutrition of a free-text entry and persist it. When the estimate breaks the
+     * text into several food items ("bife + ovo + pão"), this creates ONE {@link FoodLog} per item
+     * so the day's list and totals are itemised; otherwise it creates a single aggregate log.
+     * Either way exactly one of the two representations is stored, never both, so daily totals are
+     * never double-counted. All rows are persisted atomically.
+     *
+     * @return the persisted logs (at least one)
+     */
+    public List<FoodLog> handle(Command command) {
         Objects.requireNonNull(command, "command");
 
         FoodDescription description = new FoodDescription(
@@ -60,13 +70,25 @@ public class CreateFoodLog {
                 .orElseThrow(() -> new EstimationUnavailableException(result.failureReason()));
 
         Instant now = clock.instant();
-        FoodLog foodLog = FoodLog.create(
-                command.date(), command.mealType(), command.description(),
-                command.quantity(), command.notes(), estimate, now);
 
-        FoodLog saved = repository.save(foodLog);
-        log.info("Food log created id={} source={} calories={} confidence={}",
-                saved.id(), saved.source(), saved.nutrition().calories(), saved.confidence().value());
+        List<FoodLog> toSave;
+        if (!estimate.items().isEmpty()) {
+            // One log per food item — the description is kept on each as provenance.
+            toSave = estimate.items().stream()
+                    .map(item -> FoodLog.fromItem(
+                            command.date(), command.mealType(), command.description(),
+                            item, estimate.source(), estimate.explanation(), command.notes(), now))
+                    .toList();
+        } else {
+            // No line items (e.g. the agent returned only a total): keep one aggregate log.
+            toSave = List.of(FoodLog.create(
+                    command.date(), command.mealType(), command.description(),
+                    command.quantity(), command.notes(), estimate, now));
+        }
+
+        List<FoodLog> saved = repository.saveAll(toSave);
+        log.info("Food log(s) created count={} source={} totalCalories={} confidence={}",
+                saved.size(), estimate.source(), estimate.nutrition().calories(), estimate.confidence().value());
         return saved;
     }
 }

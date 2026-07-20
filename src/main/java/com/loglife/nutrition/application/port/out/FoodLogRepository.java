@@ -15,6 +15,12 @@ public interface FoodLogRepository {
 
     FoodLog save(FoodLog foodLog);
 
+    /**
+     * Persist several logs as a single unit of work — used when one free-text entry is split into
+     * one log per food item. Implementations must make this atomic (all rows or none).
+     */
+    List<FoodLog> saveAll(List<FoodLog> foodLogs);
+
     List<FoodLog> findByDate(LocalDate date);
 
     Optional<FoodLog> findById(UUID id);

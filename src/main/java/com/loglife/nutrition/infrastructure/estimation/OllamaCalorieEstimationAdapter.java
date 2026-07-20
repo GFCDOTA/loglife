@@ -1,6 +1,8 @@
 package com.loglife.nutrition.infrastructure.estimation;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.loglife.nutrition.application.port.out.CalorieEstimationPort;
 import com.loglife.nutrition.application.port.out.EstimationResult;
 import com.loglife.nutrition.domain.EstimationSource;
@@ -15,89 +17,137 @@ import java.util.List;
 
 /**
  * A real local-agent estimator backed by an Ollama LLM running on the user's machine
- * ({@code POST /api/chat} with {@code format: json}). The model is asked to return the same
- * JSON shape as the custom HTTP agent, which is then mapped by {@link EstimateResponseMapper}.
+ * ({@code POST /api/chat}). The response is constrained with Ollama's <em>structured outputs</em>
+ * (a JSON Schema in the {@code format} field), so the model must return exactly the
+ * {@link AgentDtos.EstimateResponse} shape, which {@link EstimateResponseMapper} maps to the domain.
+ *
+ * <p>Robustness: a short connect timeout (fail over to the mock fast if Ollama is down) with a long
+ * read timeout (a cold model load takes tens of seconds), {@code keep_alive} so the model stays
+ * warm between calls, and one retry if the model returns unparseable content.
  *
  * <p>Estimates are explicitly approximate (source {@link EstimationSource#OLLAMA}); the prompt
- * forbids medical advice and the confidence stays moderate so nothing is treated as fact.
+ * forbids medical advice. The overall confidence is derived from the per-item confidences (it is
+ * <em>not</em> faked) when the model omits it.
+ *
+ * <p>Requires Ollama with structured-output support (v0.5+).
  */
 public class OllamaCalorieEstimationAdapter implements CalorieEstimationPort {
 
     private static final Logger log = LoggerFactory.getLogger(OllamaCalorieEstimationAdapter.class);
 
-    private static final double DEFAULT_CONFIDENCE = 0.5;
+    private static final int MAX_ATTEMPTS = 2;
 
     private static final String SYSTEM_PROMPT = """
             Você é um assistente de estimativa nutricional do app LogLife.
             A partir de uma descrição livre de alimentos (geralmente em pt-BR), estime os valores
-            nutricionais aproximados. Responda SOMENTE com um objeto JSON, sem texto fora do JSON,
-            exatamente neste formato:
+            nutricionais APROXIMADOS, item por item.
+            Regras:
+            - Separe a descrição em alimentos distintos: "bife + ovo + pão" são 3 itens.
+            - Estime a porção provável a partir da descrição ("2 bifes médios" ≈ 2 × 120 g;
+              "200g de arroz" = 200 g) e calcule calorias e macros para essa porção.
+            - calories/proteinGrams/carbsGrams/fatGrams são por item, para a porção estimada.
+            - confidence é um número entre 0 e 1; na dúvida sobre a porção ou o alimento, use
+              confidence baixa. NÃO invente precisão; os valores são estimativas, não fatos.
+            - Não dê conselho médico nem metas calóricas.
+            - 'explanation' resume em uma frase como você estimou.
+            Responda apenas os dados (o formato é validado automaticamente).""";
+
+    /** JSON Schema passed to Ollama's {@code format} so the output always matches our DTO. */
+    private static final String RESPONSE_SCHEMA = """
             {
-              "items": [
-                {"name": "string", "quantity": number, "unit": "string",
-                 "calories": number, "proteinGrams": number, "carbsGrams": number,
-                 "fatGrams": number, "confidence": number}
-              ],
-              "total": {"calories": number, "proteinGrams": number, "carbsGrams": number, "fatGrams": number},
-              "confidence": number,
-              "explanation": "string"
-            }
-            Regras: valores são estimativas aproximadas, nunca números exatos ou autoritativos.
-            confidence é um número entre 0 e 1. Não dê conselho médico nem metas calóricas.
-            Não invente precisão: na dúvida, use confidence baixa.""";
+              "type": "object",
+              "properties": {
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {"type": "string"},
+                      "quantity": {"type": ["number", "null"]},
+                      "unit": {"type": ["string", "null"]},
+                      "calories": {"type": "number"},
+                      "proteinGrams": {"type": "number"},
+                      "carbsGrams": {"type": "number"},
+                      "fatGrams": {"type": "number"},
+                      "confidence": {"type": "number"}
+                    },
+                    "required": ["name", "calories", "proteinGrams", "carbsGrams", "fatGrams", "confidence"]
+                  }
+                },
+                "total": {
+                  "type": "object",
+                  "properties": {
+                    "calories": {"type": "number"},
+                    "proteinGrams": {"type": "number"},
+                    "carbsGrams": {"type": "number"},
+                    "fatGrams": {"type": "number"}
+                  }
+                },
+                "confidence": {"type": "number"},
+                "explanation": {"type": "string"}
+              },
+              "required": ["items", "explanation"]
+            }""";
 
     private final RestClient restClient;
     private final String model;
+    private final String keepAlive;
     private final ObjectMapper objectMapper;
+    private final Object responseFormat;
 
-    public OllamaCalorieEstimationAdapter(RestClient restClient, String model, ObjectMapper objectMapper) {
+    public OllamaCalorieEstimationAdapter(RestClient restClient, String model, String keepAlive,
+                                          ObjectMapper objectMapper) {
         this.restClient = restClient;
         this.model = model;
+        this.keepAlive = keepAlive;
         this.objectMapper = objectMapper;
+        this.responseFormat = objectMapper.readValue(RESPONSE_SCHEMA, Object.class);
     }
 
     @Override
     public EstimationResult estimate(FoodDescription description) {
-        try {
-            OllamaChatRequest request = new OllamaChatRequest(
-                    model,
-                    false,
-                    "json",
-                    List.of(
-                            new OllamaMessage("system", SYSTEM_PROMPT),
-                            new OllamaMessage("user", buildUserPrompt(description))),
-                    new OllamaOptions(0.2));
+        OllamaChatRequest request = new OllamaChatRequest(
+                model,
+                false,
+                responseFormat,
+                keepAlive,
+                List.of(
+                        new OllamaMessage("system", SYSTEM_PROMPT),
+                        new OllamaMessage("user", buildUserPrompt(description))),
+                new OllamaOptions(0.2));
 
-            OllamaChatResponse response = restClient.post()
-                    .uri("/api/chat")
-                    .body(request)
-                    .retrieve()
-                    .body(OllamaChatResponse.class);
+        Exception last = null;
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            try {
+                OllamaChatResponse response = restClient.post()
+                        .uri("/api/chat")
+                        .body(request)
+                        .retrieve()
+                        .body(OllamaChatResponse.class);
 
-            if (response == null || response.message() == null || response.message().content() == null) {
-                return EstimationResult.failure("ollama returned no message content");
+                if (response == null || response.message() == null || response.message().content() == null) {
+                    return EstimationResult.failure("ollama returned no message content");
+                }
+
+                AgentDtos.EstimateResponse parsed =
+                        objectMapper.readValue(response.message().content(), AgentDtos.EstimateResponse.class);
+
+                // Confidence is derived from the items by EstimateResponseMapper when the model
+                // omits an overall value — never injected as a fixed placeholder.
+                NutritionEstimate estimate = EstimateResponseMapper.toDomain(parsed, EstimationSource.OLLAMA);
+                if (estimate == null) {
+                    return EstimationResult.failure("ollama returned an empty estimate");
+                }
+                log.debug("Ollama produced estimate: items={} calories={} (attempt {})",
+                        estimate.items().size(), estimate.nutrition().calories(), attempt);
+                return EstimationResult.success(estimate);
+            } catch (Exception ex) {
+                last = ex;
+                log.warn("Ollama estimation attempt {}/{} failed: {}", attempt, MAX_ATTEMPTS, ex.toString());
             }
-
-            AgentDtos.EstimateResponse parsed =
-                    objectMapper.readValue(response.message().content(), AgentDtos.EstimateResponse.class);
-
-            // LLMs often omit an overall confidence; default to a moderate value rather than 0.
-            if (parsed.confidence() == null) {
-                parsed = new AgentDtos.EstimateResponse(
-                        parsed.items(), parsed.total(), parsed.source(), DEFAULT_CONFIDENCE, parsed.explanation());
-            }
-
-            NutritionEstimate estimate = EstimateResponseMapper.toDomain(parsed, EstimationSource.OLLAMA);
-            if (estimate == null) {
-                return EstimationResult.failure("ollama returned an empty estimate");
-            }
-            log.debug("Ollama produced estimate: items={} calories={}",
-                    estimate.items().size(), estimate.nutrition().calories());
-            return EstimationResult.success(estimate);
-        } catch (Exception ex) {
-            log.warn("Ollama estimation failed: {}", ex.toString());
-            return EstimationResult.failure("ollama error: " + ex.getMessage());
         }
+        return EstimationResult.failure(
+                "ollama error after " + MAX_ATTEMPTS + " attempts: " + (last == null ? "unknown" : last.getMessage()));
     }
 
     private static String buildUserPrompt(FoodDescription description) {
@@ -123,7 +173,9 @@ public class OllamaCalorieEstimationAdapter implements CalorieEstimationPort {
     record OllamaOptions(double temperature) {
     }
 
-    record OllamaChatRequest(String model, boolean stream, String format,
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    record OllamaChatRequest(String model, boolean stream, Object format,
+                             @JsonProperty("keep_alive") String keepAlive,
                              List<OllamaMessage> messages, OllamaOptions options) {
     }
 

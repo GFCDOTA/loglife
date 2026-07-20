@@ -44,8 +44,11 @@ public class FoodLogController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public FoodLogResponse create(@Valid @RequestBody CreateFoodLogRequest request) {
-        return FoodLogApiMapper.toResponse(createFoodLog.handle(FoodLogApiMapper.toCommand(request)));
+    public List<FoodLogResponse> create(@Valid @RequestBody CreateFoodLogRequest request) {
+        // One free-text entry may be split into several logs (one per food item).
+        return createFoodLog.handle(FoodLogApiMapper.toCommand(request)).stream()
+                .map(FoodLogApiMapper::toResponse)
+                .toList();
     }
 
     @GetMapping

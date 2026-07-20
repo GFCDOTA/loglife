@@ -1,5 +1,6 @@
 package com.loglife.nutrition.domain;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Objects;
@@ -71,6 +72,38 @@ public final class FoodLog {
                 estimate.foodName(), quantity, estimate.nutrition(),
                 estimate.confidence(), estimate.source(), notes, estimate.explanation(),
                 now, now);
+    }
+
+    /**
+     * Create a food log for a single {@link EstimatedItem} extracted from the description, so a
+     * free-text entry with several foods ("bife + ovo + pão") becomes one log per food. The
+     * original full text is kept as provenance; the item name becomes the normalized name.
+     */
+    public static FoodLog fromItem(LocalDate date,
+                                   MealType mealType,
+                                   String descriptionOriginal,
+                                   EstimatedItem item,
+                                   EstimationSource source,
+                                   String explanation,
+                                   String notes,
+                                   Instant now) {
+        Objects.requireNonNull(item, "item");
+        Objects.requireNonNull(now, "now");
+        return new FoodLog(
+                UUID.randomUUID(), date, mealType, descriptionOriginal,
+                item.name(), safeQuantity(item.quantity(), item.unit()), item.nutrition(), item.confidence(),
+                source, notes, explanation, now, now);
+    }
+
+    /**
+     * Build a {@link FoodQuantity} from a (possibly malformed) estimator item. A misbehaving
+     * estimator may return a negative amount; treat that as "no amount" instead of letting the
+     * {@code FoodQuantity} invariant crash the whole log creation.
+     */
+    private static FoodQuantity safeQuantity(BigDecimal amount, String unit) {
+        BigDecimal safeAmount = (amount != null && amount.signum() >= 0) ? amount : null;
+        boolean hasUnit = unit != null && !unit.isBlank();
+        return (safeAmount != null || hasUnit) ? new FoodQuantity(safeAmount, unit) : FoodQuantity.none();
     }
 
     /** Reconstitute an existing food log loaded from a persistence adapter. */

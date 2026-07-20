@@ -3,6 +3,7 @@ package com.loglife.nutrition.infrastructure.persistence;
 import com.loglife.nutrition.application.port.out.FoodLogRepository;
 import com.loglife.nutrition.domain.FoodLog;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -27,6 +28,13 @@ public class FoodLogRepositoryAdapter implements FoodLogRepository {
     }
 
     @Override
+    @Transactional
+    public List<FoodLog> saveAll(List<FoodLog> foodLogs) {
+        List<FoodLogJpaEntity> entities = foodLogs.stream().map(FoodLogMapper::toEntity).toList();
+        return jpa.saveAll(entities).stream().map(FoodLogMapper::toDomain).toList();
+    }
+
+    @Override
     public List<FoodLog> findByDate(LocalDate date) {
         return jpa.findByLogDateOrderByCreatedAtAsc(date).stream()
                 .map(FoodLogMapper::toDomain)
@@ -39,6 +47,7 @@ public class FoodLogRepositoryAdapter implements FoodLogRepository {
     }
 
     @Override
+    @Transactional
     public boolean deleteById(UUID id) {
         if (!jpa.existsById(id)) {
             return false;
