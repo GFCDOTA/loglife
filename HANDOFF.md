@@ -1,146 +1,134 @@
-# HANDOFF / KICKOFF — LogLife (módulo nutrição)
+# HANDOFF — LogLife (módulo nutrição)
 
-> Fio da meada. Este é o **kickoff** da linha "criação e melhoria do LogLife":
-> estado auditado (4 agentes lendo o código real, 28 achados) + roadmap priorizado.
-> Prompt pronto pra abrir uma sessão de trabalho: `PROMPT.md` (ao lado).
+> Fio da meada. Atualizado ao FIM da sessão de execução de 2026-07-20, que pegou o
+> kickoff (auditoria + roadmap de 14 itens) e **landou #1–#14 (exceto #15) na main**.
+> Prompt de sessão: `PROMPT.md` (ao lado). Bootloader: `CLAUDE.md`.
 
-- **Data:** 2026-07-20 · kickoff montado após auditoria multi-agente + validação de testes
+- **Data:** 2026-07-20 (fim da sessão de execução)
 - **Repo:** `E:\Claude\apps\loglife` · remote `origin` = `github.com/fmodesto30/loglife.git`
-- **Status geral:** 🟢 verde local / ⚠️ CI presumido VERMELHO (item #1 do roadmap) —
-  `mvnw test` **20 verdes** (com JDK 25; ver gotcha §7.1), `main` @ `561e3d4` pushado,
-  working tree com apenas os docs deste kickoff.
+- **Status geral:** 🟢 **main @ `f205c81`, working tree limpa, CI VERDE no GitHub**
+  (primeiro verde da história do repo nesta sessão; depois verde em TODOS os merges).
+  Suíte: **44 unit/contract + 22 IT** (Testcontainers PG real).
 
 ## 1. Objetivo
-Evoluir o LogLife de "backend que roda" pra **produto pessoal de nutrição completo**:
-registrar refeições em texto livre, estimar calorias/macros via **Ollama local** (sem API
-pública), e fechar o **loop de uso diário** — meta, edição, repetição de refeições,
-tendências — consumido pela PWA no iPhone. Java 25 / Spring Boot 4.1 / hexagonal.
+Evoluir o LogLife de "backend que roda" pra **produto pessoal de nutrição completo** no
+iPhone. **O loop diário FECHOU nesta sessão:** registrar (LLM ou rótulo manual), editar sem
+re-pagar LLM, meta com barra de progresso, repetir frequentes com 1 toque, tendência de 7
+dias, export CSV, re-estimar MOCKs, date opcional por voz. Falta grounding (#15).
 
 ## 2. Branch / git
-- **`main` @ `561e3d4`**, sync 0/0 com origin. A branch `feat/nutrition-improvements`
-  (per-item logging, Ollama real com JSON Schema, CLAUDE.md) foi **validada (20 testes
-  verdes) e MERGEADA na main em 2026-07-20**; deletada local+remoto.
-- Fluxo: `feat/*`|`fix/*`|`chore/*` off `main` → merge `--no-ff` → push → delete.
-  ⚠️ PAT da máquina não cria PR (`Contents:write` só) → merge via git ou PR por URL.
+- **`main` @ `f205c81`**, sync 0/0 com origin, working tree limpa, zero branch órfã.
+- 13 fatias landadas hoje via `feat/*`|`fix/*`|`test/*` → verify verde → merge `--no-ff` →
+  push → delete. ⚠️ PAT sem `Pull requests:write` → merge via git (sem PR).
 
-## 3. Estado auditado (2026-07-20, 4 dimensões — resumos honestos)
-- **Arquitetura hexagonal: MUITO BOA.** Domínio 100% sem framework (records + invariantes
-  em construtor compacto), ports em `application/port/out`, JPA entity separada + mapper,
-  DTOs com Bean Validation na borda, use cases POJO com `Clock` injetado. Right-sizing
-  correto (sem inbound-port cerimonial; `CalorieEstimationPort` justificado por 3+ impls +
-  decorators Composite/Metrics). **Desvios:** borda transacional está no adapter de
-  persistência (não no use case — parcialmente defensável: a chamada Ollama de 120s não
-  pode ficar na transação); `IllegalArgumentException→400` genérico no handler esconde
-  invariante quebrado como erro de cliente.
-- **Testes: SAUDÁVEIS com buracos de borda.** ~20 unit/contract + 6 IT (Testcontainers PG
-  real), pirâmide certa, nomes comportamentais, clock fixo, mock só dos próprios ports.
-  **Buracos:** caminho de falha total → 503 nunca exercitado; atomicidade do saveAll sem
-  teste; erros de transporte do Ollama sem cobertura; **as 2 classes de IT se poluem**
-  (mesma data 2026-06-12, sem cleanup — passam pela ordem atual, flaky latente).
-- **Produto: CRUD-menos-o-U.** POST (texto→estimativa→N logs), GET por data, daily-summary
-  (com breakdown por refeição), DELETE. Domínio maduro (macros completos, MealType,
-  confidence+source, per-item). **Faltam:** meta de referência, edição (erro = delete+
-  recria re-pagando LLM), visão além de 1 dia, repetição de frequentes, entrada manual.
-- **Infra/segurança: sólida pra app pessoal.** Config por env, zero segredo, CORS fechado,
-  Flyway V1 = entity, métricas com tags, logs sem PII. **Graves:** `mvnw` sem +x no index
-  → **CI quase certamente falha com exit 126**; retry do Ollama re-tenta em QUALQUER
-  exceção (pior caso ~240s pendurado); API + Postgres expostos na LAN sem auth.
+## 3. O que foi feito (sessão 2026-07-20)
+**Fundação #1–#4:** exec bit do mvnw (CI destravou); **descoberta real no #2**: além da
+poluição de dados, o `@Container` static parava o PG após a 1ª classe de IT — a suíte de
+ITs NUNCA tinha sido verde inteira → container singleton (static block) + `TRUNCATE` em
+`@BeforeEach` + ordenação assertada; #3 transporte do Ollama NÃO re-tenta (fim do pior caso
+240s) + flag `fallback-to-mock` (default true; `false` → 503 real, agora com IT); #4 IAE
+nua = 500 (bug nosso), `InvalidRequestException` tipada = 400 com fieldError.
+
+**Produto #5–#10, #12, #14:** PATCH sem re-estimar (`USER_OVERRIDE`, confidence 1.0,
+`@Transactional` no use case); POST com bloco `nutrition{...}` = MANUAL sem LLM;
+meta diária (V2 `user_goal` single-row, GET=204 quando unset, PUT upsert, summary com
+goal/remaining/percent honestos — negativo/>100% no estouro — e barra na PWA);
+frequentes (GROUP BY 30d) + `POST /{id}/repeat` clonando nutrition persistida (zero
+Ollama, chips na PWA); tendência 7 dias (buckets zero-filled, média SÓ sobre dias com
+log, card na PWA); export CSV RFC-4180; re-estimar in-place (badge MOCK ganhou ação);
+date opcional resolvida em `loglife.nutrition.timezone` (edge 01:15 UTC = ontem em SP,
+testado).
+
+**Hardening #11 + #13:** bind `127.0.0.1` default + filtro `X-Api-Token` (constant-time,
+só com `LOGLIFE_API_TOKEN` setado; PWA manda de `localStorage['loglife.apiToken']`);
+Postgres loopback-only no compose; key-set completo de TODAS as respostas pinado
+(`ResponseContractIT`); IT de rollback do `saveAll` (1e9 kcal estoura NUMERIC → batch
+inteiro reverte).
+
+**Bônus (bug real achado em verificação viva):** service worker era cache-first com
+cache congelado v1 → shell nunca atualizava no iPhone. Agora network-first com fallback
+offline (v2).
 
 ## 4. Decisões (vigentes)
-- Estimativa é **port-driven** (mock|local-agent|ollama|composite) — trocar provider é config.
-- Erro de agente = **Result-type** (`EstimationResult`), não exceção; composite cai pro mock.
-- Sem inbound-ports cerimoniais; interface só com ≥2 impls ou fronteira de teste (regra da casa).
-- **Nada de event-driven/abstração especulativa** — codificar quando o requisito existir.
-- Data vem do CLIENTE (evita bug de timezone no servidor) — mudar só no roadmap #14.
+- Estimativa **port-driven**; erro = Result-type; composite→mock **configurável**
+  (`fallback-to-mock`, default mantém comportamento).
+- Retry do Ollama **SÓ em parse** (output inparseável). Transporte/HTTP → failure imediato.
+- `MANUAL` = entrada de rótulo (novo caminho no create); `USER_OVERRIDE` = correção de
+  log estimado (novo valor de enum; coluna é VARCHAR, sem migration).
+- Repeat **preserva proveniência** (source/confidence do original) — os números continuam
+  vindo de onde vieram.
+- Média de tendência **ignora dias vazios** (dado ausente ≠ 0 kcal).
+- Sem Spring Security: token estático de filtro é o right-size (single-user).
+- Data vem do cliente; **ausente** → hoje na timezone configurada (#14 feito).
 
 ## 5. Testes + evidências
-- `JAVA_HOME=jdk-25 ./mvnw test` → **Tests run: 20, Failures: 0 — BUILD SUCCESS** (2026-07-20).
-- ITs (Testcontainers) **não rodadas localmente nesta validação** (exigem Docker up); o CI
-  roda `verify` no ubuntu — mas está presumido vermelho pelo +x (§3/roadmap #1). Conferir o
-  Actions após o fix.
-- Auditoria: 28 achados com arquivo:linha (4 agentes + síntese; workflow `wf_0a6753c2`).
+- `JAVA_HOME=jdk-25 ./mvnw verify` → **44 unit/contract + 22 IT, BUILD SUCCESS** (local,
+  Docker up). CI ubuntu roda o mesmo `verify` — verde em todos os merges de hoje.
+- Prova VIVA no `:8080` (workaround AF_UNIX): 204→PUT goal→POST manual→summary 33%;
+  chip repeat 1→2 logs e barra 33%→65%; trend com 7 barras e hoje destacada; tudo sem
+  erro de console. (Screenshot do pane travou por bug do renderer; evidência via
+  read_page + JS no Chrome pane.)
 
-## 6. ROADMAP (14 itens, ordem = rank; fundação PRIMEIRO)
-**Fundação (destrava a confiança no verde):**
-1. **CI:** `git update-index --chmod=+x mvnw` + commit; `push:` só main (mantém PR) no ci.yml.
-2. **Isolamento das ITs:** truncate de `food_log` em `@BeforeEach` do
-   `AbstractPostgresIntegrationTest`; assertar a ordenação real no `findsByDateOnlyAndOrders`.
-3. **Falha de estimação:** retry SÓ em falha de parse; transporte/timeout → `failure`
-   imediato (mata o pior caso de 240s); testes de transporte + IT do 503.
-4. **Borda de erro honesta:** IAE genérica volta a ser 500+log; mealType inválido → 400
-   via validação de DTO/mapper dedicado.
+## 6. ROADMAP — estado
+✅ #1 CI · ✅ #2 isolamento ITs · ✅ #3 falha de estimação · ✅ #4 borda de erro ·
+✅ #5 edição · ✅ #6 entrada manual · ✅ #7 meta · ✅ #8 frequentes/repeat ·
+✅ #9 tendências · ✅ #10 CSV · ✅ #11 rede/token · ✅ #12 MOCK re-estimar ·
+✅ #13 pinos de contrato · ✅ #14 date opcional
+**⬜ #15 (ÚNICO restante): grounding TACO** — tabela local + lookup no prompt do Ollama.
+Pré-requisitos ANTES de codar: (a) decidir a FONTE da TACO (CSV oficial UNICAMP vs
+dataset derivado), (b) montar golden-set de ~30 pratos BR com valores esperados pra
+medir antes/depois. Sem golden-set, "melhorou" seria opinião.
 
-**Produto (o loop diário, em ordem de valor):**
-5. **Edição:** `UpdateFoodLog` + PATCH sem re-estimar; `EstimationSource.USER_OVERRIDE`
-   (confidence 1.0); de quebra move a borda `@Transactional` pro use case (fix do §3).
-6. **Entrada manual de macros** (rótulo): bloco `nutrition{...}` opcional no POST →
-   pula o LLM, `USER_PROVIDED`.
-7. **Meta diária:** `NutritionGoal` + tabela `user_goal` (V2, single-user) + GET/PUT goal;
-   summary ganha goal/remaining/percent; barra de progresso na PWA.
-8. **Frequentes + repetir sem LLM:** GET frequent (GROUP BY últimos 30d) + POST repeat
-   (clona nutrition persistida, zero Ollama); chips na PWA.
-9. **Tendências:** `findByDateBetween` no port + `GetNutritionTrend` (7 dias, médias) +
-   card na PWA.
-10. **Export CSV** (reusa o between).
-12. **Logs MOCK visíveis + re-estimar** (badge na PWA; POST re-estimate reusa o update).
-14. **Date opcional** com timezone configurada (destrava log por atalho/voz).
-15. **Grounding nutricional (P0 herdado de 2026-06-23, a auditoria não via):** tabela
-    **TACO** local + lookup leve no prompt do Ollama pro 8b escalar valores reais por-100g
-    em vez de inventar. Pré-requisitos: decidir a FONTE da TACO + golden-set de ~30 pratos
-    pra medir antes/depois. Encaixar após o #6 (a entrada manual já dá o fallback humano).
-
-**Hardening (quando a superfície importar):**
-11. **Rede:** bind 127.0.0.1 por default; token estático `X-Api-Token` quando exposto na
-    LAN (SEM puxar Spring Security inteiro); Postgres fora da LAN no compose.
-13. **Pinos de contrato:** key-set completo das respostas; IT de rollback do saveAll;
-    bordas de parâmetro.
-
-## 7. Gotchas DESTA MÁQUINA (perder tempo aqui é retrabalho)
-1. ⚠️ **`JAVA_HOME` global aponta pro JDK 21** e o projeto é Java 25 → surefire quebra com
-   "class file version 69.0". SEMPRE:
-   `JAVA_HOME="C:\Program Files\Eclipse Adoptium\jdk-25.0.2.10-hotspot" ./mvnw test`.
-   (Conserto real = Felipe atualizar o JAVA_HOME do Windows.)
-2. ⚠️ **Boot live** exige `JAVA_TOOL_OPTIONS=-Djdk.net.unixdomain.tmpdir=Z:\nope`
-   (loopback do java.exe bloqueado; provável AV).
-3. **ITs** exigem Docker Desktop up (Testcontainers PG).
-4. Gotchas Boot 4 (Jackson=`tools.jackson`, starter-flyway próprio, RestClient.builder
-   estático, JDK25+Mockito argLine): ver `CLAUDE.md` + `.claude/rules/java-spring.md`.
-5. **Windows dropa +x** de `mvnw` → CI Linux exit 126; fix `git update-index --chmod=+x`.
+## 7. Gotchas DESTA MÁQUINA
+1. ⚠️ `JAVA_HOME` global = JDK 21; projeto = 25 → SEMPRE
+   `JAVA_HOME="C:\Program Files\Eclipse Adoptium\jdk-25.0.2.10-hotspot" ./mvnw …`
+   (senão "class file version 69.0").
+2. ⚠️ Boot live exige `JAVA_TOOL_OPTIONS=-Djdk.net.unixdomain.tmpdir=Z:\nope`.
+3. ITs exigem Docker Desktop up (Testcontainers PG).
+4. ⚠️ **NOVO (#11): bind default agora é `127.0.0.1`.** Pro iPhone na LAN:
+   `LOGLIFE_BIND=0.0.0.0` + `LOGLIFE_API_TOKEN=<segredo>` e no Safari do iPhone
+   `localStorage.setItem('loglife.apiToken','<segredo>')` uma vez.
+5. ⚠️ **NOVO: service worker.** Se a PWA parecer velha após deploy, é o SW v1 antigo;
+   um reload duplo resolve (o v2 network-first assume). Não voltar a cache-first.
+6. Gotchas Boot 4 (tools.jackson, starter-flyway, RestClient.builder, argLine): `CLAUDE.md`.
+7. Windows dropa +x de `mvnw` — o bit está no index agora; não reintroduzir via
+   checkout esperto.
 
 ## 8. Próximos 5 passos (menor risco primeiro)
-1. Roadmap #1 (CI) — 2 comandos, destrava a verificação de todo o resto.
-2. Roadmap #2 (isolamento das ITs) — red→green: provar a poluição, consertar a raiz.
-3. Roadmap #3 (falha de estimação) — o maior risco de runtime hoje.
-4. Roadmap #4 (borda de erro) — pequeno, fecha a fundação.
-5. Entrar no produto: #5 (edição) → #7 (meta) → #8 (frequentes).
+1. **#15a:** decidir fonte TACO (recomendo CSV oficial TACO 4ª ed. UNICAMP; ~600 alimentos)
+   — bifurcação técnica: resolver com GPT-Docker :8899, não com o Felipe.
+2. **#15b:** golden-set de ~30 pratos BR (texto livre → kcal/macros esperados) como
+   fixture de teste + script de score (antes/depois do grounding).
+3. **#15c:** tabela `taco_food` (V3) + lookup leve (normalização + LIKE/trigram) injetado
+   no prompt do Ollama ("valores por 100g: …") — flag pra ligar/desligar.
+4. **#15d:** rodar o golden-set com Ollama real (llama3.1:8b local) sem/com grounding;
+   só declarar vitória com o score melhor.
+5. Felipe (ambiente): atualizar JAVA_HOME global pro JDK 25; setar LOGLIFE_BIND/TOKEN
+   se for usar do iPhone.
 
 ## 9. Comandos úteis
 ```bash
-REPO="E:/Claude/apps/loglife"; cd "$REPO"
+cd /e/Claude/apps/loglife
 export JAVA_HOME="C:\Program Files\Eclipse Adoptium\jdk-25.0.2.10-hotspot"
-./mvnw test                                   # unit/contract (20)
-docker compose up -d && ./mvnw verify         # + ITs Testcontainers
-JAVA_TOOL_OPTIONS="-Djdk.net.unixdomain.tmpdir=Z:\nope" ./mvnw spring-boot:run  # :8080 + PWA
+./mvnw test                                    # 44 unit/contract
+docker compose up -d && ./mvnw verify          # + 22 ITs
+JAVA_TOOL_OPTIONS="-Djdk.net.unixdomain.tmpdir=Z:\nope" ./mvnw spring-boot:run
+# LAN: LOGLIFE_BIND=0.0.0.0 LOGLIFE_API_TOKEN=... (PWA: localStorage loglife.apiToken)
 ```
 
 ## 10. O que NÃO fazer
-- **Não** anotar o domínio com Spring/JPA; **não** criar inbound-port cerimonial.
-- **Não** re-tentar transporte no adapter Ollama (retry é SÓ parse — decisão do roadmap #3).
-- **Não** rodar Maven sem o JAVA_HOME do JDK 25 (§7.1) — o vermelho é ambiente, não código.
-- **Não** puxar Spring Security inteiro pro item #11 (token estático basta; single-user).
-- **Não** declarar teste que não rodou; ITs exigem Docker — dizer explicitamente se pulou.
-- **Não** deixar branch/PR aberta ao fim da sessão (landar ou descartar).
+- **Não** re-tentar transporte no adapter Ollama (decisão #3; teste pina 1 tentativa).
+- **Não** anotar domínio com Spring/JPA; `@Transactional` só em use case SEM chamada LLM
+  dentro (Create/Reestimate ficam fora por design).
+- **Não** mudar key de resposta sem atualizar `ResponseContractIT` — o pin é intencional.
+- **Não** voltar o service worker pra cache-first.
+- **Não** começar o #15 sem o golden-set (#15b) — sem medida, grounding é fé.
+- **Não** rodar Maven sem JAVA_HOME do 25; **não** declarar IT que não rodou.
 
 ## 11. Checkpoint
-
-**2026-07-20 (sessão de execução) — fundação #1–#4 LANDADA na main, CI VERDE (primeiro da
-história do repo).** #1 exec bit + push só main; #2 descoberta real: além da poluição de dados,
-o `@Container` static parava o PG após a 1ª classe (ITs nunca tinham sido verdes juntas) →
-container singleton + truncate em `@BeforeEach` + ordenação assertada; #3 transporte não re-tenta
-(mata o pior caso 240s) + flag `fallback-to-mock` (503 agora é alcançável e tem IT); #4 IAE=500
-honesto + `InvalidRequestException` com fieldError. Suíte: 25 unit + 7 IT.
-Kickoff montado em 2026-07-20: branch antiga validada e mergeada (`main @ 561e3d4`),
-auditoria completa, roadmap priorizado, gotcha novo do JAVA_HOME documentado, CLAUDE.md
-corrigido (remote existe; regra 5 antiga obsoleta). **Primeiro movimento da próxima
-sessão:** colar o `PROMPT.md` e começar pelo roadmap #1. **Sinal de tudo de pé:**
-`JAVA_HOME=jdk-25 ./mvnw test` → 20 verdes, e o Actions do GitHub verde após o fix do +x.
+**Onde parei:** roadmap #1–#14 completo e landado; main @ `f205c81` verde local+CI;
+working tree limpa; nenhuma branch/PR aberta. App ficou de pé no `:8080` da máquina
+(instância anterior ao #11, ainda bind 0.0.0.0 — morre no próximo reboot).
+**Primeiro movimento da próxima sessão:** #15a — consultar o GPT-Docker sobre a fonte
+TACO e desenhar o golden-set (§8).
+**Sinal de tudo de pé:** `mvnw verify` → 44+22 verdes; Actions do GitHub verde na main.
