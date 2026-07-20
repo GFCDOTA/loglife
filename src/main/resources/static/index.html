@@ -42,6 +42,17 @@
             <div class="macro"><span id="totalCarbs">0</span><small>Carbo (g)</small></div>
             <div class="macro"><span id="totalFat">0</span><small>Gordura (g)</small></div>
         </div>
+        <div class="goal" id="goalBlock" hidden>
+            <div class="goal-bar"><div class="goal-fill" id="goalFill"></div></div>
+            <div class="goal-info">
+                <span id="goalPercent">0%</span> da meta de <span id="goalCalories">0</span> kcal ·
+                <span id="goalRemaining">0</span>
+                <button id="goalEditBtn" class="link-btn" aria-label="Editar meta">editar</button>
+            </div>
+        </div>
+        <div class="goal" id="goalUnset" hidden>
+            <button id="goalSetBtn" class="link-btn">Definir meta diária de calorias</button>
+        </div>
         <div class="summary-foot"><span id="totalLogs">0</span> registro(s) no dia</div>
     </section>
 

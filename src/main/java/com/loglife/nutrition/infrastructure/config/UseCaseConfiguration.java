@@ -2,10 +2,13 @@ package com.loglife.nutrition.infrastructure.config;
 
 import com.loglife.nutrition.application.port.out.CalorieEstimationPort;
 import com.loglife.nutrition.application.port.out.FoodLogRepository;
+import com.loglife.nutrition.application.port.out.NutritionGoalRepository;
 import com.loglife.nutrition.application.usecase.CreateFoodLog;
 import com.loglife.nutrition.application.usecase.DeleteFoodLog;
 import com.loglife.nutrition.application.usecase.GetDailyNutritionSummary;
+import com.loglife.nutrition.application.usecase.GetNutritionGoal;
 import com.loglife.nutrition.application.usecase.ListFoodLogsByDate;
+import com.loglife.nutrition.application.usecase.SetNutritionGoal;
 import com.loglife.nutrition.application.usecase.UpdateFoodLog;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -37,8 +40,19 @@ public class UseCaseConfiguration {
     }
 
     @Bean
-    GetDailyNutritionSummary getDailyNutritionSummary(FoodLogRepository repository) {
-        return new GetDailyNutritionSummary(repository);
+    GetDailyNutritionSummary getDailyNutritionSummary(FoodLogRepository repository,
+                                                      NutritionGoalRepository goalRepository) {
+        return new GetDailyNutritionSummary(repository, goalRepository);
+    }
+
+    @Bean
+    GetNutritionGoal getNutritionGoal(NutritionGoalRepository goalRepository) {
+        return new GetNutritionGoal(goalRepository);
+    }
+
+    @Bean
+    SetNutritionGoal setNutritionGoal(NutritionGoalRepository goalRepository) {
+        return new SetNutritionGoal(goalRepository);
     }
 
     @Bean

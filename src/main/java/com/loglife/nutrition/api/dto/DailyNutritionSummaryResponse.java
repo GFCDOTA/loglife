@@ -14,7 +14,8 @@ public record DailyNutritionSummaryResponse(
         BigDecimal totalCarbsGrams,
         BigDecimal totalFatGrams,
         int totalLogs,
-        Map<String, MealTypeBucket> logsByMealType) {
+        Map<String, MealTypeBucket> logsByMealType,
+        GoalBlock goal) {
 
     public record MealTypeBucket(
             int count,
@@ -22,5 +23,18 @@ public record DailyNutritionSummaryResponse(
             BigDecimal proteinGrams,
             BigDecimal carbsGrams,
             BigDecimal fatGrams) {
+    }
+
+    /**
+     * Present only when a daily goal is configured. {@code remainingCalories} goes negative and
+     * {@code percentOfCalories} passes 100 on overshoot.
+     */
+    public record GoalBlock(
+            BigDecimal calories,
+            BigDecimal proteinGrams,
+            BigDecimal carbsGrams,
+            BigDecimal fatGrams,
+            BigDecimal remainingCalories,
+            int percentOfCalories) {
     }
 }

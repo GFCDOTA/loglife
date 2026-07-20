@@ -63,6 +63,48 @@ function renderSummary(s) {
     el("totalCarbs").textContent = num(s.totalCarbsGrams);
     el("totalFat").textContent = num(s.totalFatGrams);
     el("totalLogs").textContent = s.totalLogs;
+    renderGoal(s.goal);
+}
+
+function renderGoal(goal) {
+    const hasGoal = !!goal;
+    el("goalBlock").hidden = !hasGoal;
+    el("goalUnset").hidden = hasGoal;
+    if (!hasGoal) return;
+
+    const percent = Number(goal.percentOfCalories) || 0;
+    const over = percent > 100;
+    const fill = el("goalFill");
+    fill.style.width = Math.min(percent, 100) + "%";
+    fill.classList.toggle("over", over);
+
+    el("goalPercent").textContent = percent + "%";
+    el("goalCalories").textContent = num(goal.calories);
+    el("goalRemaining").textContent = over
+        ? num(-goal.remainingCalories) + " kcal acima"
+        : num(goal.remainingCalories) + " kcal restantes";
+}
+
+async function editGoal() {
+    const current = el("goalCalories").textContent;
+    const answer = prompt("Meta diária de calorias (kcal):", current !== "0" ? current : "2000");
+    if (answer === null) return;
+    const calories = Number(answer);
+    if (!calories || calories <= 0) {
+        toast("Informe um número de calorias positivo", true);
+        return;
+    }
+    try {
+        await api("/api/v1/nutrition/goal", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ calories }),
+        });
+        toast("Meta diária: " + num(calories) + " kcal");
+        loadDay();
+    } catch (e) {
+        toast("Falha ao salvar a meta: " + e.message, true);
+    }
 }
 
 function renderList(logs) {
@@ -192,6 +234,8 @@ function init() {
         if (chip) selectMeal(chip.dataset.meal);
     });
     el("foodForm").addEventListener("submit", submitFood);
+    el("goalSetBtn").addEventListener("click", editGoal);
+    el("goalEditBtn").addEventListener("click", editGoal);
     el("dayInput").addEventListener("change", loadDay);
     el("prevDay").addEventListener("click", () => shiftDay(-1));
     el("nextDay").addEventListener("click", () => shiftDay(1));

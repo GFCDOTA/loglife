@@ -36,6 +36,6 @@ public abstract class AbstractPostgresIntegrationTest {
 
     @BeforeEach
     void cleanDatabase() {
-        jdbcTemplate.execute("TRUNCATE TABLE food_logs");
+        jdbcTemplate.execute("TRUNCATE TABLE food_logs, user_goal");
     }
 }
