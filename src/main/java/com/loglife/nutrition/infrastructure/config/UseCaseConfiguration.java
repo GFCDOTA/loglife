@@ -8,6 +8,7 @@ import com.loglife.nutrition.application.usecase.DeleteFoodLog;
 import com.loglife.nutrition.application.usecase.GetDailyNutritionSummary;
 import com.loglife.nutrition.application.usecase.GetFrequentFoods;
 import com.loglife.nutrition.application.usecase.GetNutritionGoal;
+import com.loglife.nutrition.application.usecase.GetNutritionTrend;
 import com.loglife.nutrition.application.usecase.ListFoodLogsByDate;
 import com.loglife.nutrition.application.usecase.RepeatFoodLog;
 import com.loglife.nutrition.application.usecase.SetNutritionGoal;
@@ -75,5 +76,10 @@ public class UseCaseConfiguration {
     @Bean
     RepeatFoodLog repeatFoodLog(FoodLogRepository repository, Clock clock) {
         return new RepeatFoodLog(repository, clock);
+    }
+
+    @Bean
+    GetNutritionTrend getNutritionTrend(FoodLogRepository repository) {
+        return new GetNutritionTrend(repository);
     }
 }

@@ -6,6 +6,7 @@ import com.loglife.nutrition.api.dto.FoodLogResponse;
 import com.loglife.nutrition.api.dto.FrequentFoodResponse;
 import com.loglife.nutrition.api.dto.NutritionGoalRequest;
 import com.loglife.nutrition.api.dto.NutritionGoalResponse;
+import com.loglife.nutrition.api.dto.NutritionTrendResponse;
 import com.loglife.nutrition.api.dto.NutritionValuesRequest;
 import com.loglife.nutrition.api.dto.RepeatFoodLogRequest;
 import com.loglife.nutrition.api.dto.UpdateFoodLogRequest;
@@ -19,8 +20,10 @@ import com.loglife.nutrition.domain.FrequentFood;
 import com.loglife.nutrition.domain.MealType;
 import com.loglife.nutrition.domain.NutritionFacts;
 import com.loglife.nutrition.domain.NutritionGoal;
+import com.loglife.nutrition.domain.NutritionTrend;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -139,6 +142,16 @@ final class FoodLogApiMapper {
                 n.calories(), n.proteinGrams(), n.carbsGrams(), n.fatGrams(),
                 last.quantity().amount(), last.quantity().unit(),
                 last.source().name());
+    }
+
+    static NutritionTrendResponse toResponse(NutritionTrend trend) {
+        List<NutritionTrendResponse.DayBucket> days = trend.days().stream()
+                .map(day -> new NutritionTrendResponse.DayBucket(
+                        day.date(), day.totalLogs(),
+                        day.totals().calories(), day.totals().proteinGrams(),
+                        day.totals().carbsGrams(), day.totals().fatGrams()))
+                .toList();
+        return new NutritionTrendResponse(days, trend.daysWithLogs(), trend.averageCalories());
     }
 
     static NutritionGoal toDomain(NutritionGoalRequest request) {

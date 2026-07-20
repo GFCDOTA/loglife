@@ -46,17 +46,49 @@ function toast(message, isError) {
 async function loadDay() {
     const date = currentDate();
     try {
-        const [logs, summary, frequent] = await Promise.all([
+        const [logs, summary, frequent, trend] = await Promise.all([
             api("/api/v1/food-logs?date=" + date),
             api("/api/v1/nutrition/daily-summary?date=" + date),
             api("/api/v1/food-logs/frequent?date=" + date),
+            api("/api/v1/nutrition/trend?date=" + date),
         ]);
         renderSummary(summary);
         renderList(logs);
         renderFrequent(frequent);
+        renderTrend(trend, date);
     } catch (e) {
         toast("Falha ao carregar: " + e.message, true);
     }
+}
+
+function renderTrend(trend, selectedDate) {
+    const card = el("trendCard");
+    card.hidden = !trend || trend.daysWithLogs === 0;
+    if (card.hidden) return;
+
+    const bars = el("trendBars");
+    bars.innerHTML = "";
+    const max = Math.max(1, ...trend.days.map((d) => Number(d.calories) || 0));
+
+    for (const day of trend.days) {
+        const cal = Number(day.calories) || 0;
+        const col = document.createElement("div");
+        col.className = "trend-col";
+        col.title = `${day.date} · ${num(cal)} kcal (${day.totalLogs} registro(s))`;
+
+        const bar = document.createElement("div");
+        bar.className = "trend-bar" + (day.date === selectedDate ? " today" : "");
+        bar.style.height = Math.max(4, Math.round((cal / max) * 56)) + "px";
+
+        const label = document.createElement("small");
+        label.textContent = day.date.slice(8); // day of month
+
+        col.append(bar, label);
+        bars.appendChild(col);
+    }
+
+    el("trendAvg").textContent = num(trend.averageCalories);
+    el("trendDays").textContent = trend.daysWithLogs;
 }
 
 function renderFrequent(foods) {

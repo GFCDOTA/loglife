@@ -43,6 +43,13 @@ public class FoodLogRepositoryAdapter implements FoodLogRepository {
     }
 
     @Override
+    public List<FoodLog> findByDateBetween(LocalDate start, LocalDate end) {
+        return jpa.findByLogDateBetweenOrderByLogDateAscCreatedAtAsc(start, end).stream()
+                .map(FoodLogMapper::toDomain)
+                .toList();
+    }
+
+    @Override
     public Optional<FoodLog> findById(UUID id) {
         return jpa.findById(id).map(FoodLogMapper::toDomain);
     }

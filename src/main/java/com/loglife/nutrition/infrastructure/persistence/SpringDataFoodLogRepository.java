@@ -16,6 +16,8 @@ public interface SpringDataFoodLogRepository extends JpaRepository<FoodLogJpaEnt
 
     List<FoodLogJpaEntity> findByLogDateOrderByCreatedAtAsc(LocalDate logDate);
 
+    List<FoodLogJpaEntity> findByLogDateBetweenOrderByLogDateAscCreatedAtAsc(LocalDate start, LocalDate end);
+
     /**
      * The most-logged food names since {@code since}, most frequent first (ties broken by
      * recency). Each row is {@code [normalized_food_name, times_logged]}.
