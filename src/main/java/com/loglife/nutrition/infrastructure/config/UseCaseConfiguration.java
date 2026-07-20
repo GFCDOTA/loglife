@@ -6,6 +6,7 @@ import com.loglife.nutrition.application.usecase.CreateFoodLog;
 import com.loglife.nutrition.application.usecase.DeleteFoodLog;
 import com.loglife.nutrition.application.usecase.GetDailyNutritionSummary;
 import com.loglife.nutrition.application.usecase.ListFoodLogsByDate;
+import com.loglife.nutrition.application.usecase.UpdateFoodLog;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -43,5 +44,10 @@ public class UseCaseConfiguration {
     @Bean
     DeleteFoodLog deleteFoodLog(FoodLogRepository repository) {
         return new DeleteFoodLog(repository);
+    }
+
+    @Bean
+    UpdateFoodLog updateFoodLog(FoodLogRepository repository, Clock clock) {
+        return new UpdateFoodLog(repository, clock);
     }
 }

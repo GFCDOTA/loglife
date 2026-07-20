@@ -12,6 +12,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -97,6 +98,55 @@ class FoodLogApiIT extends AbstractPostgresIntegrationTest {
         assertThat(deleteAgain.statusCode()).isEqualTo(404);
         Map<String, Object> error = json.readValue(deleteAgain.body(), Map.class);
         assertThat(((Number) error.get("status")).intValue()).isEqualTo(404);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void editsLogWithoutReestimatingAndSummaryReflectsOverride() throws Exception {
+        // create (mock estimator decides the numbers)
+        String createBody = """
+                { "date": "%s", "mealType": "BREAKFAST", "description": "pão com manteiga" }
+                """.formatted(DATE);
+        HttpResponse<String> created = send(request("/api/v1/food-logs")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(createBody, StandardCharsets.UTF_8)).build());
+        assertThat(created.statusCode()).isEqualTo(201);
+        Matcher matcher = ID_PATTERN.matcher(created.body());
+        assertThat(matcher.find()).isTrue();
+        String id = matcher.group(1);
+
+        // the user corrects the numbers from the label — NO re-estimation
+        String patchBody = """
+                {
+                  "notes": "valores do rótulo",
+                  "nutrition": { "calories": 512, "proteinGrams": 9, "carbsGrams": 58, "fatGrams": 26 }
+                }
+                """;
+        HttpResponse<String> patched = send(request("/api/v1/food-logs/" + id)
+                .header("Content-Type", "application/json")
+                .method("PATCH", HttpRequest.BodyPublishers.ofString(patchBody, StandardCharsets.UTF_8))
+                .build());
+
+        assertThat(patched.statusCode()).isEqualTo(200);
+        Map<String, Object> log = json.readValue(patched.body(), Map.class);
+        assertThat(((Number) log.get("calories")).doubleValue()).isEqualTo(512.0);
+        assertThat(log.get("source")).isEqualTo("USER_OVERRIDE");
+        assertThat(((Number) log.get("confidence")).doubleValue()).isEqualTo(1.0);
+        assertThat(log.get("notes")).isEqualTo("valores do rótulo");
+        assertThat(log.get("mealType")).isEqualTo("BREAKFAST");
+
+        // the day's totals use the corrected values
+        HttpResponse<String> summary =
+                send(request("/api/v1/nutrition/daily-summary?date=" + DATE).GET().build());
+        Map<String, Object> summaryJson = json.readValue(summary.body(), Map.class);
+        assertThat(((Number) summaryJson.get("totalCalories")).doubleValue()).isEqualTo(512.0);
+
+        // unknown id -> structured 404
+        HttpResponse<String> missing = send(request("/api/v1/food-logs/" + UUID.randomUUID())
+                .header("Content-Type", "application/json")
+                .method("PATCH", HttpRequest.BodyPublishers.ofString(patchBody, StandardCharsets.UTF_8))
+                .build());
+        assertThat(missing.statusCode()).isEqualTo(404);
     }
 
     @Test

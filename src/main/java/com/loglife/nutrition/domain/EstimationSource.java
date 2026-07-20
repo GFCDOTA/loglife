@@ -16,5 +16,8 @@ public enum EstimationSource {
     MOCK,
 
     /** Values entered directly by the user, no estimation involved. */
-    MANUAL
+    MANUAL,
+
+    /** An estimated log whose nutrition the user later corrected by hand (full confidence). */
+    USER_OVERRIDE
 }
