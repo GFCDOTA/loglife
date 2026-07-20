@@ -37,6 +37,8 @@ loglife:
       # Which local agent to use as the primary estimator: mock | local-agent | ollama
       # Default is "mock" so the app boots and tests run with zero external dependencies.
       provider: ${LOGLIFE_ESTIMATION_PROVIDER:mock}
+      # false = no silent mock fallback: a failing primary surfaces as 503 to the client.
+      fallback-to-mock: ${LOGLIFE_ESTIMATION_FALLBACK_TO_MOCK:true}
       local-agent:
         base-url: ${LOGLIFE_LOCAL_AGENT_URL:http://localhost:8787}
         timeout: 5s

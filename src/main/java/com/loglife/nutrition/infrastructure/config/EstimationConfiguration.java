@@ -27,6 +27,9 @@ import java.time.Duration;
  *   <li>{@code local-agent} — the custom HTTP agent, wrapped with the mock fallback.</li>
  *   <li>{@code ollama} — a local Ollama LLM, wrapped with the mock fallback.</li>
  * </ul>
+ *
+ * <p>{@code loglife.nutrition.estimation.fallback-to-mock=false} removes the mock fallback, so a
+ * failing primary surfaces as 503 instead of silently logging mock numbers.
  */
 @Configuration
 public class EstimationConfiguration {
@@ -57,7 +60,7 @@ public class EstimationConfiguration {
                         properties.getLocalAgent().getTimeout(),
                         properties.getLocalAgent().getTimeout());
                 CalorieEstimationPort primary = new LocalAgentCalorieEstimationAdapter(client);
-                yield new CompositeCalorieEstimationAdapter(primary, mock, metrics, "local-agent");
+                yield withOptionalFallback(primary, properties, mock, metrics, "local-agent");
             }
             case "ollama" -> {
                 log.info("Calorie estimation provider: ollama (model={} at {})",
@@ -71,7 +74,7 @@ public class EstimationConfiguration {
                 CalorieEstimationPort primary = new OllamaCalorieEstimationAdapter(
                         client, properties.getOllama().getModel(),
                         properties.getOllama().getKeepAlive(), objectMapper);
-                yield new CompositeCalorieEstimationAdapter(primary, mock, metrics, "ollama");
+                yield withOptionalFallback(primary, properties, mock, metrics, "ollama");
             }
             default -> {
                 log.info("Calorie estimation provider: mock (no local agent configured)");
@@ -81,6 +84,18 @@ public class EstimationConfiguration {
 
         // Record the estimate-count metric uniformly for every provider (incl. mock).
         return new MetricsRecordingCalorieEstimationAdapter(selected, metrics);
+    }
+
+    private static CalorieEstimationPort withOptionalFallback(CalorieEstimationPort primary,
+                                                              EstimationProperties properties,
+                                                              MockCalorieEstimationAdapter mock,
+                                                              NutritionMetrics metrics,
+                                                              String providerName) {
+        if (properties.isFallbackToMock()) {
+            return new CompositeCalorieEstimationAdapter(primary, mock, metrics, providerName);
+        }
+        log.info("Mock fallback disabled: a failing '{}' estimator surfaces as 503", providerName);
+        return primary;
     }
 
     private static RestClient restClient(String baseUrl, Duration connectTimeout, Duration readTimeout) {

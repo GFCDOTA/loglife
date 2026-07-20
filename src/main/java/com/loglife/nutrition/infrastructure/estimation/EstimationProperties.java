@@ -13,6 +13,13 @@ public class EstimationProperties {
     /** Primary estimator: {@code mock} | {@code local-agent} | {@code ollama}. */
     private String provider = "mock";
 
+    /**
+     * Whether a failing primary estimator falls back to the controlled mock. Default keeps the
+     * historical behavior; {@code false} surfaces the failure as 503 instead of silently logging
+     * mock numbers as if they were real estimates.
+     */
+    private boolean fallbackToMock = true;
+
     private LocalAgent localAgent = new LocalAgent();
 
     private Ollama ollama = new Ollama();
@@ -23,6 +30,14 @@ public class EstimationProperties {
 
     public void setProvider(String provider) {
         this.provider = provider;
+    }
+
+    public boolean isFallbackToMock() {
+        return fallbackToMock;
+    }
+
+    public void setFallbackToMock(boolean fallbackToMock) {
+        this.fallbackToMock = fallbackToMock;
     }
 
     public LocalAgent getLocalAgent() {
