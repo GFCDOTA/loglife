@@ -3,6 +3,7 @@ package com.loglife.nutrition.api;
 import com.loglife.nutrition.api.dto.CreateFoodLogRequest;
 import com.loglife.nutrition.api.dto.DailyNutritionSummaryResponse;
 import com.loglife.nutrition.api.dto.FoodLogResponse;
+import com.loglife.nutrition.api.dto.NutritionValuesRequest;
 import com.loglife.nutrition.api.dto.UpdateFoodLogRequest;
 import com.loglife.nutrition.application.usecase.CreateFoodLog;
 import com.loglife.nutrition.application.usecase.UpdateFoodLog;
@@ -37,7 +38,12 @@ final class FoodLogApiMapper {
                 : FoodQuantity.none();
         return new CreateFoodLog.Command(
                 request.date(), mealType, request.description(),
-                quantity, request.notes(), request.language());
+                quantity, request.notes(), request.language(), toFacts(request.nutrition()));
+    }
+
+    private static NutritionFacts toFacts(NutritionValuesRequest values) {
+        return values == null ? null : new NutritionFacts(
+                values.calories(), values.proteinGrams(), values.carbsGrams(), values.fatGrams());
     }
 
     static UpdateFoodLog.Command toCommand(UUID id, UpdateFoodLogRequest request) {
@@ -52,12 +58,9 @@ final class FoodLogApiMapper {
         FoodQuantity quantity = (request.quantity() != null || request.unit() != null)
                 ? FoodQuantity.of(request.quantity(), request.unit())
                 : null;
-        NutritionFacts nutrition = request.nutrition() == null ? null : new NutritionFacts(
-                request.nutrition().calories(), request.nutrition().proteinGrams(),
-                request.nutrition().carbsGrams(), request.nutrition().fatGrams());
         return new UpdateFoodLog.Command(
                 id, request.date(), mealType, request.description(), quantity,
-                request.notes(), nutrition);
+                request.notes(), toFacts(request.nutrition()));
     }
 
     static FoodLogResponse toResponse(FoodLog log) {

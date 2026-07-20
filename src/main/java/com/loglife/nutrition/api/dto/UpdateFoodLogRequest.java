@@ -1,7 +1,6 @@
 package com.loglife.nutrition.api.dto;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
@@ -39,24 +38,5 @@ public record UpdateFoodLogRequest(
         String notes,
 
         @Valid
-        NutritionOverride nutrition) {
-
-    /** User-corrected nutrition for the stored portion. Partial overrides are not allowed. */
-    public record NutritionOverride(
-            @NotNull(message = "nutrition.calories is required")
-            @PositiveOrZero(message = "nutrition.calories must not be negative")
-            BigDecimal calories,
-
-            @NotNull(message = "nutrition.proteinGrams is required")
-            @PositiveOrZero(message = "nutrition.proteinGrams must not be negative")
-            BigDecimal proteinGrams,
-
-            @NotNull(message = "nutrition.carbsGrams is required")
-            @PositiveOrZero(message = "nutrition.carbsGrams must not be negative")
-            BigDecimal carbsGrams,
-
-            @NotNull(message = "nutrition.fatGrams is required")
-            @PositiveOrZero(message = "nutrition.fatGrams must not be negative")
-            BigDecimal fatGrams) {
-    }
+        NutritionValuesRequest nutrition) {
 }

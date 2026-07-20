@@ -1,5 +1,6 @@
 package com.loglife.nutrition.api.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -18,6 +19,7 @@ import java.time.LocalDate;
  * @param unit       optional unit
  * @param notes      optional free-text notes
  * @param language   optional BCP-47 language tag; defaults to pt-BR
+ * @param nutrition  optional label values; when present the LLM is skipped entirely (source MANUAL)
  */
 public record CreateFoodLogRequest(
         @NotNull(message = "date is required")
@@ -39,5 +41,8 @@ public record CreateFoodLogRequest(
         @Size(max = 2000, message = "notes must be at most 2000 characters")
         String notes,
 
-        String language) {
+        String language,
+
+        @Valid
+        NutritionValuesRequest nutrition) {
 }

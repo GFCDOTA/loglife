@@ -32,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -66,7 +67,7 @@ class CreateFoodLogTest {
 
         CreateFoodLog.Command command = new CreateFoodLog.Command(
                 LocalDate.of(2026, 6, 12), MealType.LUNCH,
-                "2 bifes médios e 200g de arroz", FoodQuantity.none(), "almoço", "pt-BR");
+                "2 bifes médios e 200g de arroz", FoodQuantity.none(), "almoço", "pt-BR", null);
 
         List<FoodLog> result = createFoodLog().handle(command);
 
@@ -93,12 +94,37 @@ class CreateFoodLogTest {
     }
 
     @Test
+    void manualNutritionSkipsTheEstimatorEntirely() {
+        when(repository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CreateFoodLog.Command command = new CreateFoodLog.Command(
+                LocalDate.of(2026, 6, 12), MealType.SNACK,
+                "barra de proteína (rótulo)", FoodQuantity.of(BigDecimal.valueOf(45), "g"),
+                "valores do rótulo", "pt-BR",
+                new NutritionFacts(BigDecimal.valueOf(180), BigDecimal.valueOf(20),
+                        BigDecimal.valueOf(15), BigDecimal.valueOf(5)));
+
+        List<FoodLog> result = createFoodLog().handle(command);
+
+        assertThat(result).hasSize(1);
+        FoodLog saved = result.get(0);
+        assertThat(saved.source()).isEqualTo(EstimationSource.MANUAL);
+        assertThat(saved.confidence().value()).isEqualTo(1.0);
+        assertThat(saved.nutrition().calories()).isEqualByComparingTo("180");
+        assertThat(saved.nutrition().proteinGrams()).isEqualByComparingTo("20");
+        assertThat(saved.quantity().amount()).isEqualByComparingTo("45");
+        assertThat(saved.descriptionOriginal()).isEqualTo("barra de proteína (rótulo)");
+        // The whole point: no LLM round-trip for label values.
+        verifyNoInteractions(estimationPort);
+    }
+
+    @Test
     void throwsWhenEstimationFails() {
         when(estimationPort.estimate(any())).thenReturn(EstimationResult.failure("all estimators down"));
 
         CreateFoodLog.Command command = new CreateFoodLog.Command(
                 LocalDate.of(2026, 6, 12), MealType.DINNER,
-                "sopa de legumes", FoodQuantity.none(), null, null);
+                "sopa de legumes", FoodQuantity.none(), null, null, null);
 
         assertThatThrownBy(() -> createFoodLog().handle(command))
                 .isInstanceOf(EstimationUnavailableException.class);
@@ -126,7 +152,7 @@ class CreateFoodLogTest {
 
         CreateFoodLog.Command command = new CreateFoodLog.Command(
                 LocalDate.of(2026, 6, 12), MealType.DINNER,
-                "2 bifes e 200g de arroz", FoodQuantity.none(), null, "pt-BR");
+                "2 bifes e 200g de arroz", FoodQuantity.none(), null, "pt-BR", null);
 
         List<FoodLog> result = createFoodLog().handle(command);
 
