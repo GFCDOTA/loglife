@@ -20,11 +20,15 @@ Actuator + Micrometer/Prometheus + Flyway + PostgreSQL. Package raiz
   `JAVA_HOME="C:\Program Files\Eclipse Adoptium\jdk-25.0.2.10-hotspot"` no comando
   (verificado 2026-07-20: 20 testes verdes assim). Conserto real = atualizar o
   JAVA_HOME do Windows (decisão do Felipe; muda o ambiente global).
-- ⚠️ **`java.exe` loopback BLOQUEADO nesta máquina** (`Selector.open()` EINVAL;
-  `netsh winsock reset`+reboot não resolve). A app **não sobe live aqui** sem
-  `JAVA_TOOL_OPTIONS=-Djdk.net.unixdomain.tmpdir=Z:\nope` (força TCP loopback).
-  Raiz provável = antivírus; conserto real = whitelist do `java.exe`. Já rodou
-  live (POST/GET/summary/DELETE + PWA no Chrome) com o workaround.
+- ✅ **`java.exe` acessa loopback — corrigido 2026-09-13.** A nota antiga dizia
+  "BLOQUEADO nesta máquina, a app não sobe live aqui"; isso é **falso** desde
+  então. Probe: `HttpClient` → `127.0.0.1:11434` devolveu 200, e Spring Boot
+  serviu `:8090` normalmente. Causa provável da falha antiga era o Defender,
+  resolvida pelas exclusões. **Não desistir de subir a app com base na nota
+  velha — rodar o probe antes.**
+  O workaround `JAVA_TOOL_OPTIONS=-Djdk.net.unixdomain.tmpdir=Z:\nope` pode
+  continuar necessário para **Testcontainers** (AF_UNIX do Docker) — isso não
+  foi re-verificado.
 
 ## Arquitetura (hexagonal — ports & adapters)
 ```
